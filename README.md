@@ -4,7 +4,7 @@
 > This project is actively looking for contributors to add support for more printers. Most importantly, you need to really own the printer you add: every driver must be tested on the real hardware, not only in emulation. See [Adding a printer](#adding-a-printer) to get started.
 
 
-Turns any USB-only printers into a wireless printer and scanner. An ESP32-S3 board plugs into the printer's USB port and joins your WiFi:
+Turns any USB-only printers into a wireless printer and scanner. An ESP32-S3 board plugs into the printer's USB port and joins your WiFi (set up from your phone, no password in the code):
 
 - **Print** from iPhone, iPad and Mac (AirPrint), Android (Mopria) and Linux, with no drivers or apps.
 - **Scan** from any browser, from Image Capture and Preview on a Mac, or with the button on the board.
@@ -58,17 +58,29 @@ Optionally: a SSD1315 OLED screen and a 3D-printed case, see later in this tutor
 
 ![](./docs/IMG_3538.jpeg)
 
-**Step 2: Settings.** Build once (`pio run`): this creates `.env`. Edit it:
-   ```
-   WIFI_SSID=your-network
-   WIFI_PASSWORD=your-password
-   PRINTER_NAME=Canon MG2500 (ESP32)
-   HOSTNAME=canon-mg2500
-   MODE=debug
-   ```
-   `MODE=debug` lets you update the board over WiFi later (see below); `MODE=normal` does without. `.env` is git-ignored, so your WiFi password stays local.
+**Step 2: Install.** The easy way, no software to install: open the **[web installer](https://ngxson.github.io/esp32-usb-to-airprint/)** in Chrome or Edge, click **Connect**, pick the board's serial port and install. The same firmware is attached to every [release](https://github.com/ngxson/esp32-usb-to-airprint/releases) as `esp32-usb-to-airprint.bin` (one image for address 0x0: `esptool.py --chip esp32s3 write_flash 0x0 esp32-usb-to-airprint.bin`, or Espressif's Flash Download Tool).
 
-**Step 3: Flash.** Connect the board's **COM** port to your computer and run `pio run -t upload`. PlatformIO finds the board's serial port; if several are connected, add `--upload-port /dev/cu.usbmodem…`.
+**Step 3: Build it yourself (optional).** To change the firmware, build once (`pio run`): this creates `.env`, where `MODE=debug` lets you update the board over WiFi later (see below) and `MODE=normal` does without. Then connect the board's **COM** port and run `pio run -t upload` (add `--upload-port /dev/cu.usbmodem…` if several boards are connected). The printer's name and address are not build settings any more: you choose them in step 4 and can change them on the web page (`PRINTER_NAME` and `HOSTNAME` in `.env` only set the defaults).
+
+**Step 4: WiFi.** On its first start the board opens its own WiFi network, **`Printer-Setup-XXXX`** (`XXXX` is different for each board):
+
+1. On your phone or computer, join `Printer-Setup-XXXX`. A setup page opens by itself (if it doesn't, open http://192.168.4.1/).
+2. Pick your network, type its password, give the printer a name (what phones and computers show) and an address (`http://<address>.local/`), and tap **Connect**. Only 2.4 GHz networks work.
+3. The board joins your network, remembers it and restarts; the setup network goes away. Join your own WiFi again: the printer is at `http://<address>.local/` (`http://canon-mg2500.local/` unless you changed it).
+
+If the password was wrong, the page says so and you can try again. The OLED screen, if you have one, shows the setup network's full name.
+
+To change the network later, use **Change WiFi network** on the web page's Settings card, or hold the BOOT button for 10 seconds while nothing is printing or scanning: the board forgets the network and opens the setup network again. The Settings card also changes the printer's name and address. If the board loses its network (a router outage), it keeps trying to reconnect on its own.
+
+<details>
+<summary>Other WiFi options</summary>
+
+- `SETUP_PASSWORD` in `.env` (8 to 63 characters) protects the setup network with a password; by default it is open, like most setup networks. With a password, the setup network also opens by itself when the saved network has not answered for 5 minutes (a new router, a new password); the board keeps trying the saved network meanwhile and goes back to it when it returns. Without a password this stays off, so that nobody nearby can knock the board off your WiFi and point it at their own network.
+- `WIFI_SSID` and `WIFI_PASSWORD` in `.env` build a network into the firmware, for boards you flash yourself and never set up by phone. A network chosen on the setup page wins over them. Holding BOOT only forgets a network chosen on the page: the built-in one comes back after a power cycle.
+- `CONFIG_WIFI_SETUP_AFTER_MIN` (`pio run -t menuconfig`, "Printer server") sets the 5 minutes; 0 turns that off.
+- Updating over WiFi (`MODE=debug`) to this version: keep `WIFI_SSID` in `.env` for that update. A new image that cannot join a network rolls back to the old one after 3 minutes, unless the setup is finished first.
+
+</details>
 
 ## Using it
 
@@ -76,8 +88,8 @@ Plug the printer to the port labelled "USB"
 
 NOTE: You may also need to bridge the "USB-OTG" solder join on the board, so that it supplies 5V to the printer. While the printer doesn't actively use 5V, it sense the USB plug using this signal.
 
-- **The web app:** open `http://canon-mg2500.local/` (your `HOSTNAME`) on your phone or computer.
-- **The button on the board** (BOOT, or one on GPIO4): press to scan, press twice for a test page, hold 2 s to cancel.
+- **The web app:** open `http://canon-mg2500.local/` (or the address you chose) on your phone or computer. When the printer reports an error, a window shows the code and how to fix it.
+- **The button on the board** (BOOT, or one on GPIO4): press to scan, press twice for a test page, hold 2 s to cancel, hold 10 s to choose another WiFi network.
 - **Print from a phone or a Mac:** on an iPhone, Share → Print and pick the printer. On a Mac, add it in System Settings → Printers & Scanners.
 - **Scan on a Mac:** open Image Capture (or Preview → File → Import from Scanner) and pick the printer.
 
@@ -112,6 +124,8 @@ Set `MODE=dev` and flash: print jobs are processed but not printed, and scans sh
 On the computer, without the board: `make -C host && cd host && ./airprint_host`, then open http://localhost:8631/ (an emulated printer and scanner). To work on the web app with live reloading: `cd web && npm run dev` (it talks to that server; `DEVICE=http://<board IP> npm run dev` talks to the board).
 
 Technical details are in [AGENTS.md](AGENTS.md).
+
+The web UI supports English and Simplified Chinese. Choose a language in the navigation menu; the choice is saved in this browser. See [web/I18N.md](web/I18N.md) for translation maintenance.
 
 ## Adding a printer
 

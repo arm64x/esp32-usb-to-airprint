@@ -65,6 +65,10 @@ typedef struct {
     volatile bool in_inflight;
     bool in_stopped;                    // IN endpoint failed, stop polling
     TickType_t in_last;                 // when the last IN read completed
+    int in_empty;                       // consecutive idle reads that returned nothing
+    usb_transfer_t *stat;               // IVEC GetStatus request for printers that push no status
+    volatile bool stat_inflight;
+    TickType_t stat_last;
     volatile bool ctrl_done;
     SemaphoreHandle_t ctrl_sem;
     SemaphoreHandle_t ctrl_mutex;
@@ -104,6 +108,38 @@ static void out_cb(usb_transfer_t *xfer)
     }
     atomic_fetch_sub(&s_p.out_inflight, 1);
     xQueueSend(s_p.out_free, &xfer, 0);
+}
+
+// Printers like the MG2500 answer every bulk IN read with their status. The
+// iP2700 generation sends nothing until it is asked once with an IVEC
+// GetStatus; from then on it answers every read too. Ask when the back
+// channel stays silent, at most every STAT_REQ_MS.
+#define STAT_EMPTY_READS 3
+#define STAT_REQ_MS 10000
+static const char XML_GET_STATUS[] =
+    "<?xml version=\"1.0\" encoding=\"utf-8\" ?><cmd xmlns:ivec=\"http://www.canon.com/ns/cmd/2008/07/common/\">"
+    "<ivec:contents><ivec:operation>GetStatus</ivec:operation><ivec:param_set servicetype=\"print\">"
+    "</ivec:param_set></ivec:contents></cmd>";
+
+static void stat_cb(usb_transfer_t *xfer)
+{
+    s_p.stat_inflight = false;
+    if (xfer->status == USB_TRANSFER_STATUS_COMPLETED)
+        s_p.in_last = 0;        // read the answer right away
+}
+
+static void stat_submit(void)
+{
+    if (s_p.gone || !s_p.ep_out || !s_p.stat || s_p.stat_inflight || s_p.job_active)
+        return;
+    if (s_p.stat_last == 0)
+        ESP_LOGI(TAG, "no status on the back channel, asking with GetStatus");
+    memcpy(s_p.stat->data_buffer, XML_GET_STATUS, sizeof(XML_GET_STATUS) - 1);
+    s_p.stat->num_bytes = sizeof(XML_GET_STATUS) - 1;
+    s_p.stat_inflight = true;
+    s_p.stat_last = xTaskGetTickCount();
+    if (usb_host_transfer_submit(s_p.stat) != ESP_OK)
+        s_p.stat_inflight = false;
 }
 
 static void in_submit(void)
@@ -155,10 +191,12 @@ static void handle_reply(const char *msg)
     xml_value(msg, "<ivec:response>", resp, sizeof(resp));
     xml_value(msg, "<ivec:response_detail>", detail, sizeof(detail));
     if (strcmp(op, "GetStatusResponse") == 0) {
-        char status[24], sdetail[48], data[240], summary[sizeof(s_p.last_status)];
+        char status[24], sdetail[48], data[320], summary[sizeof(s_p.last_status)];
         xml_value(msg, "<ivec:status>", status, sizeof(status));
         xml_value(msg, "<ivec:status_detail>", sdetail, sizeof(sdetail));
         xml_value(msg, "<![CDATA[", data, sizeof(data));
+        if (!data[0])       // older models (iP2700, MG6100): plain text in <cijn:ReadData>
+            xml_value(msg, "<cijn:ReadData>", data, sizeof(data));
         snprintf(summary, sizeof(summary), "%s (%s) %s", status, sdetail[0] ? sdetail : "-", data);
         xSemaphoreTake(s_p.lock, portMAX_DELAY);
         s_p.status.valid = true;
@@ -182,6 +220,8 @@ static void in_cb(usb_transfer_t *xfer)
 {
     s_p.in_inflight = false;
     s_p.in_last = xTaskGetTickCount();
+    if (xfer->status == USB_TRANSFER_STATUS_COMPLETED)
+        s_p.in_empty = xfer->actual_num_bytes > 0 ? 0 : s_p.in_empty + 1;
     if (xfer->status == USB_TRANSFER_STATUS_COMPLETED && xfer->actual_num_bytes > 0) {
         size_t n = xfer->actual_num_bytes;
         if (s_p.msg_len + n >= MSG_BUF_SIZE) {
@@ -316,7 +356,9 @@ static void release_device(void)
         usb_host_transfer_free(s_p.in);
     if (s_p.ctrl)
         usb_host_transfer_free(s_p.ctrl);
-    s_p.in = s_p.ctrl = NULL;
+    if (s_p.stat)
+        usb_host_transfer_free(s_p.stat);
+    s_p.in = s_p.ctrl = s_p.stat = NULL;
     xQueueReset(s_p.out_free);
     if (s_p.dev)
         usb_host_device_close(s_p.client, s_p.dev);
@@ -479,6 +521,8 @@ static void open_device(uint8_t addr)
     if (err == ESP_OK)
         err = usb_host_transfer_alloc(IN_XFER_SIZE, 0, &s_p.in);
     if (err == ESP_OK)
+        err = usb_host_transfer_alloc(sizeof(XML_GET_STATUS), 0, &s_p.stat);
+    if (err == ESP_OK)
         err = usb_host_interface_claim(s_p.client, s_p.dev, s_p.intf, s_p.alt);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "setup failed: %s", esp_err_to_name(err));
@@ -508,6 +552,12 @@ static void open_device(uint8_t addr)
     s_p.in->device_handle = s_p.dev;
     s_p.in->bEndpointAddress = s_p.ep_in;
     s_p.in->callback = in_cb;
+    s_p.stat->device_handle = s_p.dev;
+    s_p.stat->bEndpointAddress = s_p.ep_out;
+    s_p.stat->callback = stat_cb;
+    s_p.stat_inflight = false;
+    s_p.stat_last = 0;
+    s_p.in_empty = 0;
 
     if (s_p.alt != 0) {
         uint8_t req = USB_BM_REQUEST_TYPE_DIR_OUT | USB_BM_REQUEST_TYPE_TYPE_STANDARD |
@@ -587,6 +637,10 @@ static void client_task(void *arg)
         if (s_p.connected && !s_p.gone && !s_p.in_inflight && !s_p.scan_active &&
             xTaskGetTickCount() - s_p.in_last >= pdMS_TO_TICKS(s_p.job_active ? IN_POLL_JOB_MS : IN_POLL_IDLE_MS))
             in_submit();
+        if (s_p.connected && !s_p.gone && !s_p.job_active && !s_p.scan_active && !s_p.in_inflight &&
+            s_p.in_empty >= STAT_EMPTY_READS &&
+            (s_p.stat_last == 0 || xTaskGetTickCount() - s_p.stat_last >= pdMS_TO_TICKS(STAT_REQ_MS)))
+            stat_submit();
         if (s_p.gone && !teardown) {
             ESP_LOGW(TAG, "printer disconnected");
             teardown = true;
@@ -827,6 +881,11 @@ esp_err_t usb_printer_wait_response(const char *needle, uint32_t timeout_ms)
 
 void usb_printer_job_end(void)
 {
+    // the job's last bytes (end of page, end of job) are still in the
+    // transfer being filled unless the driver synced at the end: send them.
+    // Not after a cancel or a failed transfer (job_check stops the flush).
+    if (s_p.fill && s_p.fill->num_bytes && job_check() == ESP_OK && usb_printer_flush() != ESP_OK)
+        ESP_LOGW(TAG, "the end of the job did not reach the printer");
     if (s_p.fill) {
         usb_transfer_t *x = s_p.fill;
         s_p.fill = NULL;

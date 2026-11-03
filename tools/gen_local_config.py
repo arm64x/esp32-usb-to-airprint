@@ -1,5 +1,5 @@
 """Generate src/local_config.h from .env.example (committed defaults) and .env
-(git-ignored local settings, e.g. WiFi credentials). .env is created from
+(git-ignored local settings, e.g. the printer's name). .env is created from
 .env.example if missing.
 
 Runs automatically before every PlatformIO build (extra_scripts in
@@ -59,12 +59,31 @@ def c_string(s):
     return '"' + "".join(out) + '"'
 
 
+DEFAULTS = {
+    "WIFI_SSID": "",
+    "WIFI_PASSWORD": "",
+    "SETUP_PASSWORD": "",
+    "PRINTER_NAME": "Canon MG2500 (ESP32)",
+    "HOSTNAME": "canon-mg2500",
+    "MODE": "normal",
+}
+
+
 def main():
     if not os.path.exists(LOCAL_FILE):
-        shutil.copyfile(EXAMPLE_FILE, LOCAL_FILE)
-        print("Created .env from .env.example: put your WiFi credentials in it")
+        if os.path.exists(EXAMPLE_FILE):
+            shutil.copyfile(EXAMPLE_FILE, LOCAL_FILE)
+            print("Created .env from .env.example")
+        else:
+            with open(LOCAL_FILE, "w", encoding="utf-8") as f:
+                f.write("".join("%s=%s\n" % kv for kv in DEFAULTS.items()))
+            print("Created .env with the defaults (.env.example is missing)")
 
-    values = parse(EXAMPLE_FILE) if os.path.exists(EXAMPLE_FILE) else {}
+    # every key the firmware uses, so a checkout without .env.example (a web
+    # upload that skipped the dotfiles) still builds
+    values = dict(DEFAULTS)
+    if os.path.exists(EXAMPLE_FILE):
+        values.update(parse(EXAMPLE_FILE))
     values.update(parse(LOCAL_FILE))
 
     lines = ["// Generated from .env.example and .env by tools/gen_local_config.py. Do not edit.",
@@ -77,8 +96,11 @@ def main():
     if text != old:     # only touch the file when something changed (avoids rebuilds)
         with open(OUT_FILE, "w", encoding="utf-8") as f:
             f.write(text)
+    n = len(values.get("SETUP_PASSWORD", "").encode("utf-8"))
+    if n and not 8 <= n <= 63:
+        print("Warning: SETUP_PASSWORD needs 8 to 63 characters; the setup network stays open")
     if not values.get("WIFI_SSID"):
-        print("Warning: WIFI_SSID is empty, set it in .env")
+        print("No WIFI_SSID in .env: the board opens its setup network to choose one")
 
 
 main()

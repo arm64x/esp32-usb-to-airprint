@@ -25,7 +25,7 @@ typedef struct {
     bool valid;
     char state[24];             // "idle", "processing", ...
     char detail[48];            // e.g. "MarkerSupplyAttention"
-    char data[240];             // Canon status fields, e.g. "BST:04;...;CIR:CL=000,BK=UK;..."
+    char data[320];             // Canon status fields, e.g. "BST:04;...;CIR:CL=000,BK=UK;..."
 } usb_printer_status_t;
 
 // Called from the USB client task on attach/detach of a printer-class device.

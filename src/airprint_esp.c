@@ -6,6 +6,7 @@
 
 #include "airprint.h"
 #include "canon_bjl.h"
+#include "esp_app_desc.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_mac.h"
@@ -20,10 +21,13 @@
 #include "print_job.h"
 #include "printer_driver.h"
 #include "scan_service.h"
+#include "settings.h"
 #include "shared_buf.h"
 #include "status_led.h"
 #include "usb_printer.h"
 #include "webui.h"
+#include "wifi.h"
+#include "wifi_setup.h"
 
 static const char *TAG = "airprint_esp";
 
@@ -119,8 +123,8 @@ static int job_sync(void *ctx, const char *what)
 
 static void job_close(void *ctx, bool ok)
 {
+    usb_printer_job_end();      // sends the job's last bytes: a cancel may still need the timer
     esp_timer_stop(s_cancel_timer);
-    usb_printer_job_end();
     s_job_running = false;
     if (!ok && usb_printer_connected()) {
         ESP_LOGW(TAG, "job failed, resetting printer");
@@ -224,9 +228,82 @@ static void dev_job_close(void *ctx, bool ok)
              (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
 }
 
+// A JSON string with the usual escapes, into out (n bytes)
+static void json_str(char *out, size_t n, const char *s)
+{
+    size_t i = 0;
+    if (n < 3)
+        return;
+    out[i++] = '"';
+    for (; *s && i < n - 2; s++) {
+        unsigned char c = (unsigned char)*s;
+        if (c == '"' || c == '\\') {
+            if (i >= n - 3)
+                break;
+            out[i++] = '\\';
+            out[i++] = (char)c;
+        } else if (c < 0x20) {
+            continue;
+        } else {
+            out[i++] = (char)c;
+        }
+    }
+    out[i++] = '"';
+    out[i] = 0;
+}
+
+// GET /api/settings: the names; POST /api/settings (form: pname, host): saves
+// them and restarts; POST /api/wifi/forget: back to the WiFi setup network.
+static bool settings_http(airprint_http_t *h, const char *method, const char *path)
+{
+    if (!strcmp(path, "/api/settings")) {
+        char body[320], pname[128], host[96];
+        if (!strcmp(method, "GET") || !strcmp(method, "HEAD")) {
+            json_str(pname, sizeof(pname), settings_printer_name());
+            json_str(host, sizeof(host), settings_hostname());
+            int len = snprintf(body, sizeof(body),
+                               "{\"printer_name\":%s,\"hostname\":%s,\"hostname_max\":%d,\"printer_name_max\":%d,"
+                               "\"setup_network\":%s,\"version\":\"%s\"}",
+                               pname, host, SETTINGS_HOSTNAME_MAX, SETTINGS_PRINTER_NAME_MAX,
+                               wifi_setup_ap() ? "true" : "false", esp_app_get_description()->version);
+            airprint_http_send_ex(h, "200 OK", "application/json", "Cache-Control: no-store\r\n", body, (size_t)len);
+            return true;
+        }
+        if (!strcmp(method, "POST")) {
+            char form[512], new_pname[SETTINGS_PRINTER_NAME_MAX + 2], new_host[SETTINGS_HOSTNAME_MAX + 2];
+            int len = 0, r;
+            while (len < (int)sizeof(form) - 1 && (r = airprint_http_read_body(h, form + len, sizeof(form) - 1 - len)) > 0)
+                len += r;
+            int a = wifi_setup_form_value(form, (size_t)len, "pname", new_pname, sizeof(new_pname));
+            int b = wifi_setup_form_value(form, (size_t)len, "host", new_host, sizeof(new_host));
+            esp_err_t err = (a == -2 || b == -2) ? ESP_ERR_INVALID_ARG : settings_set(new_host, new_pname);
+            if (err != ESP_OK) {
+                const char *msg = "{\"error\":\"the address is 1 to 32 letters, digits or dashes; the name 1 to 48 characters\"}";
+                airprint_http_send(h, "400 Bad Request", "application/json", msg, strlen(msg));
+                return true;
+            }
+            const char *msg = "{\"ok\":true,\"restart\":true}";
+            airprint_http_send(h, "200 OK", "application/json", msg, strlen(msg));
+            ESP_LOGI(TAG, "settings changed from the web: restarting");
+            settings_restart_soon();
+            return true;
+        }
+    }
+    if (!strcmp(path, "/api/wifi/forget") && !strcmp(method, "POST")) {
+        const char *msg = "{\"ok\":true,\"restart\":true}";
+        airprint_http_send(h, "200 OK", "application/json", msg, strlen(msg));
+        ESP_LOGI(TAG, "WiFi forgotten from the web: opening the setup network");
+        vTaskDelay(pdMS_TO_TICKS(500));
+        wifi_forget();
+        return true;
+    }
+    return false;
+}
+
 static bool web_http(airprint_http_t *h, const char *method, const char *path)
 {
-    return scan_service_http(h, method, path) || events_http(h, method, path) || webui_http(h, method, path);
+    return settings_http(h, method, path) || scan_service_http(h, method, path) || events_http(h, method, path) ||
+           webui_http(h, method, path);
 }
 
 static bool dev_http(void *ctx, airprint_http_t *h, const char *method, const char *path)
@@ -361,15 +438,15 @@ static esp_err_t announce(const char *hostname)
         {"Scan", drv->scanner ? "T" : "F"},    // the eSCL scanner below, same UUID
         {"Fax", "F"},
     };
-    err = mdns_service_add(PRINTER_NAME, "_ipp", "_tcp", IPP_PORT, txt, sizeof(txt) / sizeof(txt[0]));
+    err = mdns_service_add(settings_printer_name(), "_ipp", "_tcp", IPP_PORT, txt, sizeof(txt) / sizeof(txt[0]));
     if (err != ESP_OK)
         return err;
     // "_universal" is what iOS looks for; "_print" is IPP Everywhere
-    mdns_service_subtype_add_for_host(PRINTER_NAME, "_ipp", "_tcp", NULL, "_universal");
-    mdns_service_subtype_add_for_host(PRINTER_NAME, "_ipp", "_tcp", NULL, "_print");
+    mdns_service_subtype_add_for_host(settings_printer_name(), "_ipp", "_tcp", NULL, "_universal");
+    mdns_service_subtype_add_for_host(settings_printer_name(), "_ipp", "_tcp", NULL, "_print");
 
     if (!drv->scanner) {
-        ESP_LOGI(TAG, "announced \"%s\" as %s.local:%d", PRINTER_NAME, hostname, IPP_PORT);
+        ESP_LOGI(TAG, "announced \"%s\" as %s.local:%d", settings_printer_name(), hostname, IPP_PORT);
         return ESP_OK;
     }
     // eSCL scanner (AirScan): macOS Image Capture / Preview, sane-airscan, Windows
@@ -389,10 +466,10 @@ static esp_err_t announce(const char *hostname)
         {"adminurl", adminurl},
         {"representation", icon},
     };
-    err = mdns_service_add(PRINTER_NAME, "_uscan", "_tcp", WEB_PORT, scan_txt, sizeof(scan_txt) / sizeof(scan_txt[0]));
+    err = mdns_service_add(settings_printer_name(), "_uscan", "_tcp", WEB_PORT, scan_txt, sizeof(scan_txt) / sizeof(scan_txt[0]));
     if (err != ESP_OK)
         ESP_LOGW(TAG, "cannot announce the scanner: %s", esp_err_to_name(err));
-    ESP_LOGI(TAG, "announced \"%s\" as %s.local:%d", PRINTER_NAME, hostname, IPP_PORT);
+    ESP_LOGI(TAG, "announced \"%s\" as %s.local:%d", settings_printer_name(), hostname, IPP_PORT);
     return ESP_OK;
 }
 
@@ -402,7 +479,7 @@ static esp_err_t start_mdns(const char *hostname)
     if (err != ESP_OK)
         return err;
     mdns_hostname_set(hostname);
-    mdns_instance_name_set(PRINTER_NAME);
+    mdns_instance_name_set(settings_printer_name());
     return announce(hostname);
 }
 
@@ -452,7 +529,7 @@ esp_err_t airprint_esp_start(const char *hostname, void (*on_job_state)(bool pri
     ESP_LOGI(TAG, "printer driver: %s (%s)", drv->id, drv->make_model);
     snprintf(s_hostname, sizeof(s_hostname), "%s", hostname);
     s_cfg = (airprint_config_t){
-        .name = PRINTER_NAME,
+        .name = settings_printer_name(),
         .uuid = s_uuid,
         .port = IPP_PORT,
         .web_port = WEB_PORT,
