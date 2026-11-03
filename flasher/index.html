@@ -39,6 +39,11 @@
   li { margin: 6px 0; }
   a { color: var(--accent); }
   code { font: .9em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+  .buy { list-style: none; padding: 0; margin: 6px 0 0; }
+  .buy li { margin: 4px 0; }
+  .buy a { font-weight: 600; text-decoration: none; }
+  .buy a:hover { text-decoration: underline; }
+  .buy .why { color: var(--muted); font-weight: 400; }
   .note { border-radius: 9px; padding: 10px 14px; margin: 12px 0 0; font-size: .95rem; }
   .warn { background: var(--warn-soft); color: var(--warn); }
   .err { background: var(--err-soft); color: var(--err); }
@@ -84,13 +89,75 @@
   <p class="lead" data-lang="en">Turn an old USB printer into a Wi-Fi printer (AirPrint, Mopria) with an ESP32-S3 board. This page installs the firmware from the browser; nothing to install on the computer.
     <a href="https://github.com/arm64x/esp32-usb-to-airprint">Source on GitHub</a></p>
 
+  <!-- ===== Máy in hỗ trợ ===== -->
+  <section>
+    <h2><span class="n">&#10003;</span><span data-lang="vi">Máy in được hỗ trợ</span><span data-lang="en">Supported printers</span></h2>
+    <div data-lang="vi">
+      <p>Các dòng Canon PIXMA sau. Firmware tự nhận model khi cắm máy in vào, không phải chọn gì.</p>
+      <table>
+        <tr><th>Dòng máy</th><th>Model</th><th>Quét</th></tr>
+        <tr><td>🟢 Canon MG2500</td><td>MG2550S</td><td>có</td></tr>
+        <tr><td>🟢 Canon iP2700</td><td>iP2700 đến iP2788</td><td>không có máy quét</td></tr>
+        <tr><td>🟡 Canon MG2400</td><td>MG2410 đến MG2490</td><td>có</td></tr>
+        <tr><td>🟡 Canon MG2500</td><td>MG2510 đến MG2590 (trừ MG2500S)</td><td>có</td></tr>
+        <tr><td>🟡 Canon P200</td><td>P200</td><td>không có máy quét</td></tr>
+        <tr><td>🟡 Canon MG2900</td><td>MG2910 đến MG2990</td><td>có</td></tr>
+        <tr><td>🟡 Canon MG3000</td><td>MG3010 đến MG3090</td><td>có</td></tr>
+        <tr><td>🟡 Canon E470</td><td>E470 đến E478</td><td>có</td></tr>
+        <tr><td>🟡 Canon E460</td><td>E460 đến E468</td><td>có</td></tr>
+        <tr><td>🟡 Canon iP2800</td><td>iP2810 đến iP2899</td><td>không có máy quét</td></tr>
+        <tr><td>🟡 Canon E3100</td><td>E3170 đến E3195</td><td>có</td></tr>
+        <tr><td>🟡 Canon TS3100</td><td>TS3110 đến TS3195</td><td>có</td></tr>
+        <tr><td>🟡 Canon MP230</td><td>MP230 đến MP237</td><td>có</td></tr>
+        <tr><td>🟡 Canon MP250, MP270, MP280</td><td>MP250 đến MP288</td><td>có</td></tr>
+        <tr><td>🟡 Canon MP490, MP493, MP495</td><td>MP490 đến MP499</td><td>có</td></tr>
+        <tr><td>🟡 Canon MX340, MX350</td><td>MX340 đến MX358</td><td>có (chỉ mặt kính)</td></tr>
+        <tr><td>🟡 Canon MX360, MX410, MX420</td><td>MX360 đến MX428</td><td>có (chỉ mặt kính)</td></tr>
+      </table>
+      <p class="small muted" style="margin-top:8px">🟢 Đã in thử trên máy thật · 🟡 Dự kiến chạy được, chưa thử trên máy thật. Máy khác? Mở issue hoặc gửi PR trên GitHub.</p>
+    </div>
+    <div data-lang="en">
+      <p>These Canon PIXMA series. The firmware recognises the printer when it is plugged in; nothing to choose.</p>
+      <table>
+        <tr><th>Series</th><th>Models</th><th>Scan</th></tr>
+        <tr><td>🟢 Canon MG2500</td><td>MG2550S</td><td>yes</td></tr>
+        <tr><td>🟢 Canon iP2700</td><td>iP2700 to iP2788</td><td>no scanner</td></tr>
+        <tr><td>🟡 Canon MG2400</td><td>MG2410 to MG2490</td><td>yes</td></tr>
+        <tr><td>🟡 Canon MG2500</td><td>MG2510 to MG2590 (other than the MG2500S)</td><td>yes</td></tr>
+        <tr><td>🟡 Canon P200</td><td>P200</td><td>no scanner</td></tr>
+        <tr><td>🟡 Canon MG2900</td><td>MG2910 to MG2990</td><td>yes</td></tr>
+        <tr><td>🟡 Canon MG3000</td><td>MG3010 to MG3090</td><td>yes</td></tr>
+        <tr><td>🟡 Canon E470</td><td>E470 to E478</td><td>yes</td></tr>
+        <tr><td>🟡 Canon E460</td><td>E460 to E468</td><td>yes</td></tr>
+        <tr><td>🟡 Canon iP2800</td><td>iP2810 to iP2899</td><td>no scanner</td></tr>
+        <tr><td>🟡 Canon E3100</td><td>E3170 to E3195</td><td>yes</td></tr>
+        <tr><td>🟡 Canon TS3100</td><td>TS3110 to TS3195</td><td>yes</td></tr>
+        <tr><td>🟡 Canon MP230</td><td>MP230 to MP237</td><td>yes</td></tr>
+        <tr><td>🟡 Canon MP250, MP270, MP280</td><td>MP250 to MP288</td><td>yes</td></tr>
+        <tr><td>🟡 Canon MP490, MP493, MP495</td><td>MP490 to MP499</td><td>yes</td></tr>
+        <tr><td>🟡 Canon MX340, MX350</td><td>MX340 to MX358</td><td>yes (glass only)</td></tr>
+        <tr><td>🟡 Canon MX360, MX410, MX420</td><td>MX360 to MX428</td><td>yes (glass only)</td></tr>
+      </table>
+      <p class="small muted" style="margin-top:8px">🟢 Validated on a real printer · 🟡 Expected to work, not tested on real hardware yet. Another printer? Open an issue or a PR on GitHub.</p>
+    </div>
+  </section>
+
   <!-- ===== 1. Chuẩn bị ===== -->
   <section>
     <h2><span class="n">1</span><span data-lang="vi">Chuẩn bị</span><span data-lang="en">What you need</span></h2>
     <div data-lang="vi">
       <ol>
-        <li><b>Board ESP32-S3</b> (ESP32 thường hoặc ESP32-C3 không dùng được). Nên chọn bản <b>N16R8</b>: 16 MB flash, 8 MB PSRAM. Flash phải từ 16 MB. <a href="https://s.shopee.vn/9KjJ48lfq8" target="_blank" rel="noopener">Bấm vào đây để mua ESP32-S3 N16R8</a> (Shopee).</li>
-        <li><b>Cáp nối máy in</b>: USB-C sang USB-B (đầu vuông). <a href="https://s.shopee.vn/2qVqP2aOx0" target="_blank" rel="noopener">Cáp thường</a>, chọn <b>bản OTG dài 15 cm</b> vì đầu cắm nhỏ, không vướng cổng USB-C cấp nguồn ngay bên cạnh (bản đầu to cắm vào sẽ che mất cổng đó). Hoặc <a href="https://s.shopee.vn/gRLp7BTnv" target="_blank" rel="noopener">bản xịn dây bọc dù</a> (Shopee).</li>
+        <li><b>Board ESP32-S3</b> (ESP32 thường hoặc ESP32-C3 không dùng được). Nên chọn bản <b>N16R8</b>: 16 MB flash, 8 MB PSRAM. Flash phải từ 16 MB.
+          <ul class="buy">
+            <li>&#128722; <a href="https://s.shopee.vn/9KjJ48lfq8" target="_blank" rel="noopener">Mua ESP32-S3 N16R8 tại đây</a> <span class="why">(Shopee)</span></li>
+          </ul>
+        </li>
+        <li><b>Cáp nối máy in</b>: USB-C sang USB-B (đầu vuông).
+          <ul class="buy">
+            <li>&#128722; <a href="https://s.shopee.vn/2qVqP2aOx0" target="_blank" rel="noopener">Cáp thường</a> <span class="why">(Shopee) · chọn <b>bản OTG dài 15 cm</b>: đầu cắm nhỏ, không vướng cổng USB-C cấp nguồn ngay bên cạnh; bản đầu to cắm vào sẽ che mất cổng đó</span></li>
+            <li>&#128722; <a href="https://s.shopee.vn/gRLp7BTnv" target="_blank" rel="noopener">Bản xịn dây bọc dù</a> <span class="why">(Shopee)</span></li>
+          </ul>
+        </li>
         <li><b>Cắm board vào máy tính bằng cổng COM</b> (có board ghi UART). <b>Không</b> cắm cổng ghi USB: cổng đó dành cho máy in. Board một cổng thì cắm cổng đó.</li>
         <li><b>Trình duyệt Chrome, Edge, Cốc Cốc hoặc Brave</b> trên Windows, macOS hoặc Linux (mọi trình duyệt gốc Chromium đều được). Safari, Firefox và điện thoại không có Web Serial nên không nối được với board; khi đó nạp bằng esptool, xem mục Sự cố.</li>
         <li>Cáp USB có dây dữ liệu, không phải cáp chỉ sạc.</li>
@@ -102,8 +169,17 @@
     </div>
     <div data-lang="en">
       <ol>
-        <li>An <b>ESP32-S3 board</b> (a plain ESP32 or an ESP32-C3 will not do). Prefer the <b>N16R8</b> version: 16 MB flash, 8 MB PSRAM. The flash must be 16 MB or more. <a href="https://s.shopee.vn/9KjJ48lfq8" target="_blank" rel="noopener">Buy an ESP32-S3 N16R8 here</a> (Shopee, Vietnam).</li>
-        <li><b>A printer cable</b>: USB-C to USB-B. <a href="https://s.shopee.vn/2qVqP2aOx0" target="_blank" rel="noopener">Standard</a>, pick the <b>15 cm OTG version</b>: its small plug does not block the power USB-C port right next to it (the bulky one does). Or the <a href="https://s.shopee.vn/gRLp7BTnv" target="_blank" rel="noopener">braided one</a> (Shopee, Vietnam).</li>
+        <li>An <b>ESP32-S3 board</b> (a plain ESP32 or an ESP32-C3 will not do). Prefer the <b>N16R8</b> version: 16 MB flash, 8 MB PSRAM. The flash must be 16 MB or more.
+          <ul class="buy">
+            <li>&#128722; <a href="https://s.shopee.vn/9KjJ48lfq8" target="_blank" rel="noopener">Buy an ESP32-S3 N16R8 here</a> <span class="why">(Shopee, Vietnam)</span></li>
+          </ul>
+        </li>
+        <li><b>A printer cable</b>: USB-C to USB-B.
+          <ul class="buy">
+            <li>&#128722; <a href="https://s.shopee.vn/2qVqP2aOx0" target="_blank" rel="noopener">Standard cable</a> <span class="why">(Shopee, Vietnam) · pick the <b>15 cm OTG version</b>: its small plug does not block the power USB-C port right next to it; the bulky one does</span></li>
+            <li>&#128722; <a href="https://s.shopee.vn/gRLp7BTnv" target="_blank" rel="noopener">Braided cable</a> <span class="why">(Shopee, Vietnam)</span></li>
+          </ul>
+        </li>
         <li><b>Plug the board into the computer by its COM port</b> (UART on some boards). <b>Not</b> the port marked USB: that one is for the printer. A board with a single port: use that one.</li>
         <li><b>Chrome, Edge, Cốc Cốc or Brave</b> on Windows, macOS or Linux (any Chromium-based browser works). Safari, Firefox and phones have no Web Serial, so they cannot talk to the board; flash with esptool instead, see Trouble.</li>
         <li>A USB cable with data wires, not a charge-only cable.</li>
