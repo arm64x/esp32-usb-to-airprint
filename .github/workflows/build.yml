@@ -1,33 +1,18 @@
-# Started by hand (Actions -> Build firmware -> Run workflow): builds the
-# firmware and publishes a GitHub Release with
+# Builds the firmware on every push (any branch) and publishes it:
 #  - esp32-usb-to-airprint.bin: one image for address 0x0 (bootloader,
 #    partition table, OTA data and app), for esptool / Flash Download Tool
 #  - esp32-usb-to-airprint-parts.zip: the four parts with their offsets
-# and, when asked, deploys the web installer site (flasher/) to GitHub Pages
-# (Settings -> Pages -> Source: GitHub Actions).
+# Every push updates the rolling pre-release "latest" (Releases page) with
+# these files; a tag v1.2.3 makes a proper release 1.2.3. Pushes to the
+# default branch also deploy the web installer site (flasher/) to GitHub
+# Pages (Settings -> Pages -> Source: GitHub Actions).
 name: Build firmware
 
 on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Release version, e.g. 1.0.0 (the release is tagged v<version>)"
-        required: true
-        type: string
-      notes:
-        description: "What changed (shown on the release page; empty = generated from the commits)"
-        required: false
-        type: string
-      prerelease:
-        description: "Mark the release as a pre-release"
-        required: false
-        type: boolean
-        default: false
-      pages:
-        description: "Also deploy the web installer to GitHub Pages"
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: write
@@ -74,9 +59,12 @@ jobs:
       - name: Build the firmware (MODE=normal, no WiFi built in)
         id: build
         run: |
-          version="${{ inputs.version }}"
-          version="${version#v}"
-          [[ "$version" =~ ^[0-9A-Za-z.+-]+$ ]] || { echo "bad version: $version"; exit 1; }
+          base=$(sed -n 's/^set(PROJECT_VER "\(.*\)")$/\1/p' CMakeLists.txt)
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF#refs/tags/v}"
+          else
+            version="$base-${GITHUB_SHA::7}"
+          fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           printf 'MODE=normal\n' > .env
           FIRMWARE_VERSION="$version" pio run -e esp32s3
@@ -121,22 +109,35 @@ jobs:
         with:
           path: site
 
-      - name: Release
+      - name: Release (a v* tag)
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.build.outputs.version }}
           name: ${{ env.NAME }} ${{ steps.build.outputs.version }}
+          generate_release_notes: true
+          files: |
+            out/${{ env.NAME }}.bin
+            out/${{ env.NAME }}-parts.zip
+          fail_on_unmatched_files: true
+
+      - name: Rolling pre-release "latest" (every push)
+        if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest build (${{ steps.build.outputs.version }})
+          body: |
+            Built automatically from `${{ github.ref_name }}` at ${{ github.sha }}.
+            Flash `${{ env.NAME }}.bin` at address 0x0, or use the web installer.
+          prerelease: true
           target_commitish: ${{ github.sha }}
-          body: ${{ inputs.notes }}
-          generate_release_notes: ${{ inputs.notes == '' }}
-          prerelease: ${{ inputs.prerelease }}
           files: |
             out/${{ env.NAME }}.bin
             out/${{ env.NAME }}-parts.zip
           fail_on_unmatched_files: true
 
   deploy:
-    if: inputs.pages
+    if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     needs: build
     runs-on: ubuntu-latest
     permissions:
