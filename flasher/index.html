@@ -1,137 +1,375 @@
 <!doctype html>
-<html lang="en">
+<html lang="vi">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ESP32 USB to AirPrint: web installer</title>
-<meta name="description" content="Install the ESP32 USB to AirPrint firmware on an ESP32-S3 from the browser, then set up its WiFi.">
-<!-- esp-web-tools (Apache-2.0), copied from flasher/node_modules by tools/gen_flasher.py -->
+<title>ESP32 USB to AirPrint · Cài đặt</title>
+<link rel="icon" href="data:,">
+<meta name="description" content="Cài firmware ESP32 USB to AirPrint lên ESP32-S3 ngay từ trình duyệt. Install the firmware on an ESP32-S3 from the browser.">
+<!-- esp-web-tools (Apache-2.0) and esptool-js (Apache-2.0), copied next to this page by the build -->
 <script type="module" src="esp-web-tools/install-button.js"></script>
 <style>
   :root {
     color-scheme: light dark;
-    --bg: #f6f7f9; --card: #fff; --text: #1d2228; --muted: #5d6670; --line: #dde1e6;
-    --accent: #0a66d8; --warn-bg: #fff6e0; --warn-line: #f0c75e;
-    --esp-tools-button-color: #0a66d8;
-    --esp-tools-button-text-color: #fff;
-    --esp-tools-button-border-radius: 8px;
+    --bg: #f3f4f7; --card: #fff; --text: #191c23; --muted: #687080; --line: #e2e5eb;
+    --accent: #3f56e0; --soft: rgba(63,86,224,.1); --ok: #15803d; --ok-soft: rgba(21,128,61,.12);
+    --warn: #b45309; --warn-soft: rgba(180,83,9,.12); --err: #c62828; --err-soft: rgba(198,40,40,.1);
+    --esp-tools-button-color: #3f56e0; --esp-tools-button-text-color: #fff; --esp-tools-button-border-radius: 9px;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #15181c; --card: #1e2227; --text: #e7eaee; --muted: #9aa3ad; --line: #30363d;
-      --accent: #5aa2ff; --warn-bg: #2e2716; --warn-line: #7a6326;
-      --esp-tools-button-color: #3d8bf2;
-    }
+    :root { --bg: #101216; --card: #181b21; --text: #e6e8ec; --muted: #979eab; --line: #2b3039;
+      --accent: #7c8dff; --soft: rgba(124,141,255,.14); --ok: #4ade80; --ok-soft: rgba(74,222,128,.12);
+      --warn: #fbbf24; --warn-soft: rgba(251,191,36,.12); --err: #f87171; --err-soft: rgba(248,113,113,.12);
+      --esp-tools-button-color: #5a6cff; }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-         font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  main { max-width: 720px; margin: 0 auto; padding: 32px 20px 64px; }
-  h1 { font-size: 1.7rem; line-height: 1.25; margin: 0 0 6px; }
-  .lead { color: var(--muted); margin: 0 0 24px; }
-  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; margin: 16px 0; }
-  h2 { font-size: 1.1rem; margin: 0 0 10px; }
-  ol { margin: 0; padding-left: 1.3em; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
+  .top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+  .logo { width: 48px; height: 48px; border-radius: 13px; background: var(--soft); color: var(--accent); display: grid; place-items: center; font-size: 24px; flex: none; }
+  h1 { font-size: 1.55rem; line-height: 1.25; margin: 0; }
+  .lead { color: var(--muted); margin: 0 0 20px; }
+  .lang { margin-left: auto; display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 3px; gap: 2px; }
+  .lang button { border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 600; padding: 6px 12px; border-radius: 7px; cursor: pointer; }
+  .lang button.on { background: var(--accent); color: #fff; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; margin: 14px 0; box-shadow: 0 1px 2px rgba(16,24,40,.05), 0 4px 16px rgba(16,24,40,.06); }
+  h2 { font-size: 1.1rem; margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
+  .n { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; display: inline-grid; place-items: center; font-size: .9rem; flex: none; }
+  ol, ul { margin: 0; padding-left: 1.3em; }
   li { margin: 6px 0; }
   a { color: var(--accent); }
-  code { font: 0.9em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--bg); padding: 1px 5px; border-radius: 4px; }
-  .install { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; }
-  fieldset { border: 0; padding: 0; margin: 0 0 14px; }
-  label.variant { display: block; margin: 4px 0; cursor: pointer; }
-  label.variant small { display: block; margin-left: 1.6em; color: var(--muted); }
-  .version { color: var(--muted); font-size: 0.9rem; }
-  .warn { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 8px; padding: 10px 14px; margin: 12px 0 0; }
+  code { font: .9em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+  .note { border-radius: 9px; padding: 10px 14px; margin: 12px 0 0; font-size: .95rem; }
+  .warn { background: var(--warn-soft); color: var(--warn); }
+  .err { background: var(--err-soft); color: var(--err); }
+  .ok { background: var(--ok-soft); color: var(--ok); }
+  .muted { color: var(--muted); }
+  .small { font-size: .9rem; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .btn { font: inherit; font-weight: 600; padding: 11px 18px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); color: var(--text); cursor: pointer; }
+  .btn.primary { background: var(--accent); color: #fff; border-color: transparent; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .drop { margin-top: 12px; border: 2px dashed var(--line); border-radius: 12px; padding: 22px 16px; text-align: center; background: var(--bg); transition: border-color .15s, background .15s; }
+  .drop.over { border-color: var(--accent); background: var(--soft); }
+  .drop input { display: none; }
+  .drop .file { font-weight: 600; margin-top: 8px; }
+  .bar { height: 10px; background: var(--bg); border-radius: 5px; overflow: hidden; margin: 12px 0 6px; display: none; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  .log { font: .8rem ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--bg); border-radius: 9px; padding: 10px 12px; max-height: 180px; overflow: auto; white-space: pre-wrap; margin-top: 10px; display: none; }
+  label.chk { display: flex; gap: 8px; align-items: center; margin-top: 10px; font-size: .95rem; }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; font-weight: 600; }
+  table { border-collapse: collapse; width: 100%; font-size: .95rem; margin-top: 8px; }
+  td, th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  [data-lang] { display: none; }
+  html[lang=vi] [data-lang=vi], html[lang=en] [data-lang=en] { display: revert; }
   [slot=unsupported], [slot=not-allowed] { display: block; }
-  footer { color: var(--muted); font-size: 0.85rem; text-align: center; margin-top: 28px; }
+  footer { color: var(--muted); font-size: .85rem; text-align: center; margin-top: 28px; }
 </style>
 </head>
 <body>
 <main>
-  <h1>ESP32 USB to AirPrint</h1>
-  <p class="lead">Install the firmware on your ESP32-S3 from this page, then set up its WiFi from a phone. No software to install.
-    <a href="https://github.com/ngxson/esp32-usb-to-airprint">About the project</a></p>
-
-  <section>
-    <h2>1. Plug the board into this computer</h2>
-    <ol>
-      <li>An <b>ESP32-S3 board with 16 MB flash and 8 MB PSRAM</b> (N16R8) and two USB-C ports.</li>
-      <li>Use the port marked <b>COM</b> (or UART), <b>not</b> the one marked USB: the USB port is for the printer.</li>
-      <li>Use Chrome or Edge on a computer. Safari, Firefox and phones cannot talk to USB devices from a web page.</li>
-    </ol>
-  </section>
-
-  <section>
-    <h2>2. Install</h2>
-    <fieldset id="variants" hidden></fieldset>
-    <div class="install">
-      <esp-web-install-button id="install" manifest="manifest-normal.json">
-        <span slot="unsupported" class="warn">This browser cannot install the firmware: open this page in Chrome or Edge on a computer.</span>
-        <span slot="not-allowed" class="warn">The installer needs a secure page: open it over https (or from localhost).</span>
-      </esp-web-install-button>
-      <span class="version" id="version"></span>
+  <div class="top">
+    <div class="logo">&#128424;</div>
+    <div>
+      <h1>ESP32 USB to AirPrint</h1>
     </div>
-    <ol style="margin-top: 14px">
-      <li>Click <b>Connect</b> and pick the board's serial port (often "USB Single Serial", "CP210x" or "CH340").</li>
-      <li>On a board that never ran this firmware, let it erase the board first.</li>
-      <li>If it cannot connect: hold the board's <b>BOOT</b> button, press <b>RST</b>, release BOOT, then try again.</li>
-    </ol>
-    <p class="warn">No serial port in the list? The board's USB-to-serial chip may need a driver:
-      <a href="https://www.wch-ic.com/downloads/CH343SER_EXE.html">CH340/CH343</a> or
-      <a href="https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers">CP210x</a>.
-      On Linux, add yourself to the <code>dialout</code> group.</p>
-  </section>
+    <div class="lang" role="group" aria-label="Language">
+      <button id="lang-vi" class="on" onclick="setLang('vi')">Tiếng Việt</button>
+      <button id="lang-en" onclick="setLang('en')">English</button>
+    </div>
+  </div>
+  <p class="lead" data-lang="vi">Biến máy in USB cũ thành máy in Wi-Fi (AirPrint, Mopria) bằng một board ESP32-S3. Trang này cài firmware lên board ngay trong trình duyệt, không cần cài phần mềm.
+    <a href="https://github.com/arm64x/esp32-usb-to-airprint">Mã nguồn trên GitHub</a></p>
+  <p class="lead" data-lang="en">Turn an old USB printer into a Wi-Fi printer (AirPrint, Mopria) with an ESP32-S3 board. This page installs the firmware from the browser; nothing to install on the computer.
+    <a href="https://github.com/arm64x/esp32-usb-to-airprint">Source on GitHub</a></p>
 
+  <!-- ===== 1. Chuẩn bị ===== -->
   <section>
-    <h2>3. Connect it to your WiFi</h2>
-    <ol>
-      <li>After installing, the board opens its own WiFi network, <b>Printer-Setup-XXXX</b>. Join it from a phone: a setup page opens by itself (or open <code>http://192.168.4.1/</code>).</li>
-      <li>Pick your network (2.4 GHz), type its password, give the printer a name and an address, and tap <b>Connect</b>.</li>
-      <li>The board joins your network and restarts. Back on your own WiFi, open <code>http://&lt;address&gt;.local/</code>. To change the network later, use <b>Change WiFi network</b> on that page, or hold <b>BOOT</b> for 10 seconds.</li>
-    </ol>
+    <h2><span class="n">1</span><span data-lang="vi">Chuẩn bị</span><span data-lang="en">What you need</span></h2>
+    <div data-lang="vi">
+      <ol>
+        <li><b>Board ESP32-S3</b> (ESP32 thường hoặc ESP32-C3 không dùng được). Nên chọn bản <b>N16R8</b>: 16 MB flash, 8 MB PSRAM. Flash phải từ 16 MB.</li>
+        <li><b>Cắm board vào máy tính bằng cổng COM</b> (có board ghi UART). <b>Không</b> cắm cổng ghi USB: cổng đó dành cho máy in. Board một cổng thì cắm cổng đó.</li>
+        <li><b>Trình duyệt Chrome hoặc Edge</b> trên Windows, macOS hoặc Linux. Safari, Firefox và điện thoại không nối được với board qua trang web.</li>
+        <li>Cáp USB có dây dữ liệu, không phải cáp chỉ sạc.</li>
+      </ol>
+      <div class="note warn">Không thấy cổng nào khi bấm Kết nối? Board dùng chip CH340 hoặc CP210x cần cài driver:
+        <a href="https://www.wch-ic.com/downloads/CH343SER_EXE.html">CH340/CH343</a> ·
+        <a href="https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers">CP210x</a>.
+        Trên Linux, thêm user vào nhóm <code>dialout</code> rồi đăng nhập lại.</div>
+    </div>
+    <div data-lang="en">
+      <ol>
+        <li>An <b>ESP32-S3 board</b> (a plain ESP32 or an ESP32-C3 will not do). Prefer the <b>N16R8</b> version: 16 MB flash, 8 MB PSRAM. The flash must be 16 MB or more.</li>
+        <li><b>Plug the board into the computer by its COM port</b> (UART on some boards). <b>Not</b> the port marked USB: that one is for the printer. A board with a single port: use that one.</li>
+        <li><b>Chrome or Edge</b> on Windows, macOS or Linux. Safari, Firefox and phones cannot talk to the board from a web page.</li>
+        <li>A USB cable with data wires, not a charge-only cable.</li>
+      </ol>
+      <div class="note warn">No serial port listed when you click Connect? Boards with a CH340 or CP210x chip need a driver:
+        <a href="https://www.wch-ic.com/downloads/CH343SER_EXE.html">CH340/CH343</a> ·
+        <a href="https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers">CP210x</a>.
+        On Linux, add yourself to the <code>dialout</code> group and log in again.</div>
+    </div>
   </section>
 
+  <!-- ===== 2. Cài firmware ===== -->
   <section>
-    <h2>4. Plug in the printer</h2>
-    <ol>
-      <li>Connect the printer to the board's port marked <b>USB</b> and power the board (the COM port can stay on a phone charger).</li>
-      <li>Bridge the board's <b>USB-OTG</b> solder pads so that it gives the printer 5 V: most printers only appear when they see it.</li>
-      <li>Print from an iPhone, iPad or Mac (AirPrint), Android (Mopria), or from the board's web page; scan from the web page or Image Capture.</li>
-    </ol>
+    <h2><span class="n">2</span><span data-lang="vi">Cài firmware</span><span data-lang="en">Install the firmware</span></h2>
+    <div data-lang="vi">
+      <p><b>Cách A: cài bản mới nhất bằng một nút.</b> Bấm <b>Cài đặt</b>, chọn cổng của board (thường tên "USB Single Serial", "CH340", "CP210x" hoặc "USB JTAG/serial"), với board mới chọn xoá sạch (erase) khi được hỏi, rồi chờ. Trang tự kiểm tra board có đúng là ESP32-S3 không trước khi nạp.</p>
+    </div>
+    <div data-lang="en">
+      <p><b>Option A: one click, the latest build.</b> Click <b>Install</b>, pick the board's port (usually "USB Single Serial", "CH340", "CP210x" or "USB JTAG/serial"), let it erase a new board when asked, and wait. The page checks that the board really is an ESP32-S3 before writing.</p>
+    </div>
+    <div class="row">
+      <esp-web-install-button id="install" manifest="manifest.json">
+        <button slot="activate" class="btn primary"><span data-lang="vi">Cài đặt</span><span data-lang="en">Install</span></button>
+        <span slot="unsupported" class="note err" data-lang="vi">Trình duyệt này không cài được: mở trang bằng Chrome hoặc Edge trên máy tính.</span>
+        <span slot="unsupported" class="note err" data-lang="en">This browser cannot install: open the page in Chrome or Edge on a computer.</span>
+        <span slot="not-allowed" class="note err" data-lang="vi">Trang cần https (hoặc localhost) mới nối được cổng USB.</span>
+        <span slot="not-allowed" class="note err" data-lang="en">The page needs https (or localhost) to reach the USB port.</span>
+      </esp-web-install-button>
+      <span class="small muted" id="latest-info"></span>
+    </div>
+
+    <div data-lang="vi">
+      <p style="margin-top:18px"><b>Cách B: nạp một file .bin bạn đã tải về.</b> Tải <code>esp32-usb-to-airprint.bin</code> từ
+        <a href="https://github.com/arm64x/esp32-usb-to-airprint/releases/latest">trang Releases</a>
+        (hoặc <a href="https://github.com/arm64x/esp32-usb-to-airprint/releases/download/latest/esp32-usb-to-airprint.bin">bản build mới nhất</a>), rồi kéo thả file vào ô dưới hoặc bấm để chọn. Trang sẽ nối với board, kiểm tra chip là ESP32-S3, kiểm tra file đúng là ảnh đầy đủ, rồi nạp vào địa chỉ 0x0.</p>
+    </div>
+    <div data-lang="en">
+      <p style="margin-top:18px"><b>Option B: flash a .bin you downloaded.</b> Get <code>esp32-usb-to-airprint.bin</code> from the
+        <a href="https://github.com/arm64x/esp32-usb-to-airprint/releases/latest">Releases page</a>
+        (or the <a href="https://github.com/arm64x/esp32-usb-to-airprint/releases/download/latest/esp32-usb-to-airprint.bin">latest build</a>), then drop it below or click to choose it. The page connects to the board, checks that the chip is an ESP32-S3 and that the file is a full image, then writes it at address 0x0.</p>
+    </div>
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept=".bin,application/octet-stream">
+      <div data-lang="vi">Kéo thả file <b>.bin</b> vào đây, hoặc bấm để chọn</div>
+      <div data-lang="en">Drop the <b>.bin</b> here, or click to choose it</div>
+      <div class="file" id="filename"></div>
+    </label>
+    <label class="chk"><input type="checkbox" id="erase"> <span data-lang="vi">Xoá sạch flash trước khi nạp (board mới hoặc muốn xoá Wi-Fi đã lưu)</span><span data-lang="en">Erase the whole flash first (a new board, or to forget the saved Wi-Fi)</span></label>
+    <div class="row" style="margin-top:12px">
+      <button class="btn primary" id="flash" disabled><span data-lang="vi">Kết nối và nạp</span><span data-lang="en">Connect and flash</span></button>
+      <span class="small" id="status"></span>
+    </div>
+    <div class="bar" id="bar"><div></div></div>
+    <div class="log" id="log"></div>
+    <div data-lang="vi">
+      <div class="note warn">Không kết nối được? Giữ nút <b>BOOT</b> trên board, bấm <b>RST</b> (hoặc EN), thả BOOT, rồi bấm lại. Đóng các chương trình khác đang mở cổng COM (Arduino, PlatformIO monitor).</div>
+    </div>
+    <div data-lang="en">
+      <div class="note warn">Cannot connect? Hold the board's <b>BOOT</b> button, press <b>RST</b> (or EN), release BOOT, then try again. Close other programs that hold the COM port (Arduino, PlatformIO monitor).</div>
+    </div>
   </section>
 
-  <footer>Firmware: MIT. The installer is <a href="https://github.com/esphome/esp-web-tools">ESP Web Tools</a> (Apache-2.0). The firmware image is also at <a href="esp32-usb-to-airprint.bin">esp32-usb-to-airprint.bin</a> (one file for address 0x0, for esptool or Flash Download Tool).</footer>
+  <!-- ===== 3. Wi-Fi ===== -->
+  <section>
+    <h2><span class="n">3</span><span data-lang="vi">Nối board vào Wi-Fi nhà bạn</span><span data-lang="en">Connect it to your Wi-Fi</span></h2>
+    <div data-lang="vi">
+      <ol>
+        <li>Sau khi nạp xong, board khởi động và phát mạng Wi-Fi riêng tên <b>Printer-Setup-XXXX</b> (XXXX khác nhau ở mỗi board).</li>
+        <li>Trên điện thoại, nối vào mạng đó. Trang cài đặt tự mở (nếu không, mở <code>http://192.168.4.1/</code>).</li>
+        <li>Chọn mạng Wi-Fi nhà (chỉ 2.4 GHz), nhập mật khẩu, đặt <b>tên máy in</b> và <b>địa chỉ</b> (ví dụ <code>ip2700</code>), bấm <b>Connect</b>.</li>
+        <li>Board nối vào mạng nhà và khởi động lại, mạng Printer-Setup biến mất. Nối điện thoại lại mạng nhà, mở <code>http://&lt;địa chỉ&gt;.local/</code>.</li>
+      </ol>
+      <p class="small muted">Đổi mạng sau này: vào trang web của máy in, thẻ Cài đặt, bấm "Đổi mạng WiFi". Hoặc giữ nút BOOT trên board 10 giây.</p>
+    </div>
+    <div data-lang="en">
+      <ol>
+        <li>After the install the board starts and opens its own Wi-Fi network, <b>Printer-Setup-XXXX</b> (XXXX differs per board).</li>
+        <li>On a phone, join that network. The setup page opens by itself (if not, open <code>http://192.168.4.1/</code>).</li>
+        <li>Pick your home network (2.4 GHz only), type its password, give the printer a <b>name</b> and an <b>address</b> (e.g. <code>ip2700</code>), tap <b>Connect</b>.</li>
+        <li>The board joins your network and restarts; Printer-Setup goes away. Back on your own Wi-Fi, open <code>http://&lt;address&gt;.local/</code>.</li>
+      </ol>
+      <p class="small muted">To change the network later: the printer's web page, Settings card, "Change WiFi network". Or hold the board's BOOT button for 10 seconds.</p>
+    </div>
+  </section>
+
+  <!-- ===== 4. Máy in ===== -->
+  <section>
+    <h2><span class="n">4</span><span data-lang="vi">Cắm máy in</span><span data-lang="en">Plug in the printer</span></h2>
+    <div data-lang="vi">
+      <ol>
+        <li>Nối máy in vào cổng ghi <b>USB</b> của board bằng cáp USB-C sang USB-B (đầu vuông). Board một cổng: hàn thêm cổng USB-A cái vào GPIO19 (D-), GPIO20 (D+), 5V và GND.</li>
+        <li><b>Hàn cầu "USB-OTG"</b> trên board (hai pad nhỏ, thường ở mặt sau) để cổng USB có 5V. Máy in chỉ xuất hiện khi thấy 5V trên cáp.</li>
+        <li>Cấp nguồn cho board bằng sạc điện thoại qua cổng COM. Bật máy in.</li>
+        <li>Mở <code>http://&lt;địa chỉ&gt;.local/</code>: thấy tên máy in và trạng thái "Sẵn sàng" là xong. In từ iPhone, iPad, Mac (AirPrint), Android (Mopria) hoặc từ chính trang web.</li>
+      </ol>
+      <p class="small muted">Máy in báo lỗi (hết giấy, kẹt giấy, hết mực…) thì trang web hiện cửa sổ với mã lỗi và cách xử lý.</p>
+    </div>
+    <div data-lang="en">
+      <ol>
+        <li>Connect the printer to the board's port marked <b>USB</b> with a USB-C to USB-B cable. A single-port board: solder a USB-A socket to GPIO19 (D-), GPIO20 (D+), 5V and GND.</li>
+        <li><b>Bridge the "USB-OTG" solder pads</b> on the board (two small pads, usually underneath) so that the USB port carries 5 V. The printer only shows up when it sees 5 V on the cable.</li>
+        <li>Power the board from a phone charger on the COM port. Turn the printer on.</li>
+        <li>Open <code>http://&lt;address&gt;.local/</code>: the printer's name and "Ready" mean you are done. Print from iPhone, iPad, Mac (AirPrint), Android (Mopria) or from the web page itself.</li>
+      </ol>
+      <p class="small muted">When the printer reports an error (out of paper, jam, no ink…) the web page shows a window with the code and how to fix it.</p>
+    </div>
+  </section>
+
+  <!-- ===== 5. Sự cố ===== -->
+  <section>
+    <h2><span class="n">5</span><span data-lang="vi">Gặp sự cố?</span><span data-lang="en">Trouble?</span></h2>
+    <div data-lang="vi">
+      <table>
+        <tr><th>Hiện tượng</th><th>Cách xử lý</th></tr>
+        <tr><td>Trang báo "chip không phải ESP32-S3"</td><td>Board là ESP32 thường, S2 hoặc C3. Firmware chỉ chạy trên ESP32-S3.</td></tr>
+        <tr><td>Nạp xong nhưng không thấy mạng Printer-Setup</td><td>Chờ 20 giây sau khi nạp. Board có thể đang nối mạng đã lưu từ trước: xem đèn trên board, hoặc giữ BOOT 10 giây để mở lại mạng cài đặt.</td></tr>
+        <tr><td>Nối mạng cài đặt nhưng trang không tự mở</td><td>Mở trình duyệt, vào <code>http://192.168.4.1/</code>. Tắt dữ liệu di động nếu điện thoại tự chuyển mạng.</td></tr>
+        <tr><td>Không tìm thấy mạng nhà trong danh sách</td><td>Chỉ hỗ trợ 2.4 GHz. Router phát riêng 5 GHz thì bật thêm 2.4 GHz, hoặc chọn "Hidden network" và gõ tên.</td></tr>
+        <tr><td>Trang web báo "Chưa kết nối máy in"</td><td>Kiểm tra cầu hàn USB-OTG, cáp có dây dữ liệu, máy in đã bật. Rút cáp máy in rồi cắm lại.</td></tr>
+        <tr><td>Máy in không có trong danh sách hỗ trợ</td><td>Xem danh sách trong README trên GitHub. Firmware tự nhận model khi cắm; máy lạ sẽ dùng driver mặc định và có thể in sai.</td></tr>
+      </table>
+    </div>
+    <div data-lang="en">
+      <table>
+        <tr><th>Symptom</th><th>What to do</th></tr>
+        <tr><td>The page says the chip is not an ESP32-S3</td><td>The board is a plain ESP32, an S2 or a C3. The firmware runs on the ESP32-S3 only.</td></tr>
+        <tr><td>Installed, but no Printer-Setup network</td><td>Wait 20 seconds after the install. The board may be joining a network saved earlier: check its LED, or hold BOOT for 10 seconds to reopen the setup network.</td></tr>
+        <tr><td>Joined the setup network, the page does not open</td><td>Open a browser at <code>http://192.168.4.1/</code>. Turn mobile data off if the phone keeps switching networks.</td></tr>
+        <tr><td>Home network not in the list</td><td>2.4 GHz only. If the router is 5 GHz only, enable 2.4 GHz, or choose "Hidden network" and type the name.</td></tr>
+        <tr><td>The web page says "No printer connected"</td><td>Check the USB-OTG bridge, a data cable, the printer is on. Unplug and replug the printer.</td></tr>
+        <tr><td>The printer is not in the supported list</td><td>See the list in the README on GitHub. The firmware picks the driver from the model it sees; an unknown printer gets the default driver and may print wrong.</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <footer>Firmware: MIT · <a href="https://github.com/esphome/esp-web-tools">ESP Web Tools</a> and <a href="https://github.com/espressif/esptool-js">esptool-js</a> (Apache-2.0)</footer>
 </main>
+
 <script>
-  // the firmware variants this site was built with (tools/gen_flasher.py writes variants.json)
-  const DESCRIPTIONS = {
-    normal: 'Printing and scanning.',
-    debug: 'Also lets you update the firmware and read its log over WiFi (tools/remote.py). Anyone on your network can do the same: only on a network you trust.',
-  };
-  const button = document.getElementById('install');
-  const version = document.getElementById('version');
-  function choose(v) {
-    button.manifest = v.manifest;
-    button.setAttribute('manifest', v.manifest);
-    version.textContent = 'Version ' + v.version;
+  function setLang(l) {
+    document.documentElement.lang = l;
+    document.getElementById('lang-vi').classList.toggle('on', l === 'vi');
+    document.getElementById('lang-en').classList.toggle('on', l === 'en');
+    try { localStorage.setItem('lang', l); } catch {}
   }
-  fetch('variants.json').then((r) => r.json()).then((variants) => {
-    if (!variants.length) return;
-    const box = document.getElementById('variants');
-    if (variants.length > 1) {
-      box.hidden = false;
-      for (const [i, v] of variants.entries()) {
-        const label = document.createElement('label');
-        label.className = 'variant';
-        const input = Object.assign(document.createElement('input'), { type: 'radio', name: 'variant', checked: i === 0 });
-        input.addEventListener('change', () => choose(v));
-        const small = document.createElement('small');
-        small.textContent = DESCRIPTIONS[v.id] || '';
-        label.append(input, ' ', v.label, small);
-        box.append(label);
-      }
-    }
-    choose(variants[0]);
+  (function () {
+    let l = null;
+    try { l = localStorage.getItem('lang'); } catch {}
+    if (!l) l = (navigator.language || '').toLowerCase().startsWith('vi') ? 'vi' : 'en';
+    setLang(l);
+  })();
+  // the version of the build next to this page (manifest.json is written by the build)
+  fetch('manifest.json').then((r) => r.json()).then((m) => {
+    document.getElementById('latest-info').textContent = m.version ? ((document.documentElement.lang === 'vi' ? 'Phiên bản ' : 'Version ') + m.version) : '';
   }).catch(() => {});
+</script>
+<script type="module">
+  import { ESPLoader, Transport } from './esptool.js';
+
+  const T = {
+    vi: {
+      unsupported: 'Trình duyệt này không có Web Serial: dùng Chrome hoặc Edge trên máy tính.',
+      notbin: 'File không phải ảnh firmware ESP32 (byte đầu phải là 0xE9).',
+      notmerged: 'File này là app riêng lẻ, không phải ảnh đầy đủ. Hãy tải esp32-usb-to-airprint.bin (ảnh nạp ở 0x0).',
+      connecting: 'Đang kết nối…',
+      chip: 'Chip: ',
+      wrongchip: 'Board này không phải ESP32-S3. Firmware chỉ chạy trên ESP32-S3.',
+      erasing: 'Đang xoá flash…',
+      writing: 'Đang nạp… ',
+      done: 'Nạp xong. Board đang khởi động lại: sau 20 giây tìm mạng Wi-Fi Printer-Setup-XXXX (bước 3).',
+      failed: 'Lỗi: ',
+      flashsize: 'Flash: ',
+      smallflash: 'Flash của board nhỏ hơn 16 MB: firmware này cần 16 MB.',
+    },
+    en: {
+      unsupported: 'This browser has no Web Serial: use Chrome or Edge on a computer.',
+      notbin: 'Not an ESP32 firmware image (the first byte must be 0xE9).',
+      notmerged: 'This is the app alone, not the full image. Download esp32-usb-to-airprint.bin (the image for 0x0).',
+      connecting: 'Connecting…',
+      chip: 'Chip: ',
+      wrongchip: 'This board is not an ESP32-S3. The firmware runs on the ESP32-S3 only.',
+      erasing: 'Erasing the flash…',
+      writing: 'Writing… ',
+      done: 'Done. The board restarts: in about 20 seconds look for the Wi-Fi network Printer-Setup-XXXX (step 3).',
+      failed: 'Failed: ',
+      flashsize: 'Flash: ',
+      smallflash: 'The board’s flash is smaller than 16 MB: this firmware needs 16 MB.',
+    },
+  };
+  const t = (k) => (T[document.documentElement.lang] || T.en)[k];
+  const $ = (id) => document.getElementById(id);
+  const drop = $('drop'), input = $('file'), flashBtn = $('flash'), status = $('status'), bar = $('bar'), log = $('log');
+  let file = null;
+
+  function setStatus(text, cls) { status.textContent = text; status.className = 'small ' + (cls || ''); }
+  function logLine(s) { log.style.display = 'block'; log.textContent += s + '\n'; log.scrollTop = log.scrollHeight; }
+  function pick(f) {
+    if (!f) return;
+    file = f;
+    $('filename').textContent = `${f.name} · ${(f.size / 1048576).toFixed(2)} MB`;
+    flashBtn.disabled = false;
+    setStatus('');
+  }
+  input.addEventListener('change', () => pick(input.files[0]));
+  for (const ev of ['dragenter', 'dragover']) drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); });
+  for (const ev of ['dragleave', 'drop']) drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); });
+  drop.addEventListener('drop', (e) => pick(e.dataTransfer.files[0]));
+
+  flashBtn.addEventListener('click', async () => {
+    if (!file) return;
+    if (!navigator.serial) return setStatus(t('unsupported'), 'err');
+    const data = new Uint8Array(await file.arrayBuffer());
+    if (data[0] !== 0xe9) return setStatus(t('notbin'), 'err');
+    // a full image carries the partition table at 0x8000 (magic AA 50); the app alone does not
+    const merged = data.length > 0x8002 && data[0x8000] === 0xaa && data[0x8001] === 0x50;
+    if (!merged) return setStatus(t('notmerged'), 'err');
+
+    flashBtn.disabled = true;
+    log.textContent = '';
+    bar.style.display = 'block';
+    bar.firstElementChild.style.width = '0';
+    let transport = null;
+    try {
+      const port = await navigator.serial.requestPort();
+      transport = new Transport(port, false);
+      const terminal = { clean() {}, writeLine(l) { logLine(l); }, write(s) { log.textContent += s; } };
+      const loader = new ESPLoader({ transport, baudrate: 460800, romBaudrate: 115200, terminal });
+      setStatus(t('connecting'));
+      const chip = await loader.main();
+      logLine(t('chip') + chip);
+      if (!/ESP32-S3/i.test(chip)) {
+        setStatus(t('wrongchip'), 'err');
+        await transport.disconnect();
+        flashBtn.disabled = false;
+        return;
+      }
+      try {
+        const size = await loader.getFlashSize();     // KB
+        logLine(t('flashsize') + (size / 1024) + ' MB');
+        if (size < 16 * 1024) { setStatus(t('smallflash'), 'err'); await transport.disconnect(); flashBtn.disabled = false; return; }
+      } catch {}
+      if ($('erase').checked) {
+        setStatus(t('erasing'));
+        await loader.eraseFlash();
+      }
+      setStatus(t('writing'));
+      await loader.writeFlash({
+        fileArray: [{ data: loader.ui8ToBstr(data), address: 0 }],
+        flashSize: 'keep', flashMode: 'keep', flashFreq: 'keep',
+        eraseAll: false, compress: true,
+        reportProgress(i, written, total) {
+          const pct = Math.round((written / total) * 100);
+          bar.firstElementChild.style.width = pct + '%';
+          setStatus(t('writing') + pct + '%');
+        },
+      });
+      await loader.after('hard_reset');
+      await transport.disconnect();
+      bar.firstElementChild.style.width = '100%';
+      setStatus(t('done'), 'ok');
+    } catch (e) {
+      logLine(String(e && e.message ? e.message : e));
+      setStatus(t('failed') + (e && e.message ? e.message : e), 'err');
+      try { if (transport) await transport.disconnect(); } catch {}
+    } finally {
+      flashBtn.disabled = false;
+    }
+  });
 </script>
 </body>
 </html>

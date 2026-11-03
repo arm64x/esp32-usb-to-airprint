@@ -1,0 +1,11 @@
+{
+  "name": "esp32-usb-to-airprint",
+  "version": "latest",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [{ "path": "esp32-usb-to-airprint.bin", "offset": 0 }]
+    }
+  ]
+}
