@@ -21,7 +21,7 @@
 
   const open = $derived(!!key && key !== dismissed);
   // read the locale here so the guides follow the language picker
-  const guides = $derived(codes.map((code) => ({ code, g: guideFor(code, i18n.locale) })));
+  const guides = $derived(codes.map((code) => ({ code, g: guideFor(code, i18n.locale, p?.model) })));
 </script>
 
 {#if open}

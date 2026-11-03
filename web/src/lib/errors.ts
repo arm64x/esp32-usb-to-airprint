@@ -63,7 +63,7 @@ const en: Guides = {
   '1485': {
     title: 'Unsupported ink cartridge',
     cause: 'The cartridge is not a type this printer takes.',
-    steps: ['Use PG-510 or PG-512 (black) and CL-511 or CL-513 (colour).', 'If the error stays, replace the cartridge.'],
+    steps: ['Use the cartridges made for this printer: {cartridges}.', 'If the error stays, replace the cartridge.'],
     blink: 'Alarm lamp flashes orange 5 times',
   },
   '1486': {
@@ -250,7 +250,7 @@ const vi: Guides = {
   '1485': {
     title: 'Hộp mực không hỗ trợ',
     cause: 'Hộp mực không đúng loại dùng cho máy này.',
-    steps: ['Dùng đúng loại PG-510 hoặc PG-512 (đen) và CL-511 hoặc CL-513 (màu).', 'Nếu vẫn lỗi, thay hộp mực.'],
+    steps: ['Dùng đúng loại hộp mực của máy này: {cartridges}.', 'Nếu vẫn lỗi, thay hộp mực.'],
     blink: 'Đèn Alarm nháy cam 5 lần',
   },
   '1486': {
@@ -391,6 +391,25 @@ const vi: Guides = {
 
 const GUIDES: Record<Locale, Guides> = { en, vi };
 
+// What is specific to a printer family. The codes and fixes above are Canon's
+// common support codes (the same across the PIXMA range of that era); the lamp
+// patterns come from the iP2700 service manual, so they are shown for that
+// family only, and the cartridge names follow the model.
+const CARTRIDGES: [RegExp, string][] = [
+  [/iP27|MP2[3-8]|MP49|MX3[2-6]|MX4[12]/i, 'PG-510 / PG-512 (black), CL-511 / CL-513 (colour)'],
+  [/MG2[45]|MG29|MG30|TS31|E47|E46/i, 'PG-545 / PG-545XL (black), CL-546 / CL-546XL (colour)'],
+  [/iP28|E31|E40|E41/i, 'PG-445 / PG-445XL (black), CL-446 / CL-446XL (colour)'],
+];
+const UNKNOWN_CARTRIDGES: Record<Locale, string> = {
+  en: 'see the printer\u2019s manual',
+  vi: 'xem sách hướng dẫn của máy',
+};
+function cartridgesFor(model: string | undefined, locale: Locale): string {
+  for (const [re, names] of CARTRIDGES) if (model && re.test(model)) return names;
+  return UNKNOWN_CARTRIDGES[locale] || UNKNOWN_CARTRIDGES.en;
+}
+const BLINK_FAMILY = /iP27/i;
+
 // DWS: warnings that do not stop printing
 const WARNINGS: Record<Locale, Record<string, string>> = {
   en: {
@@ -459,12 +478,21 @@ export function codesFor(p: { codes?: string[]; reasons: string[] } | null): str
   return out;
 }
 
-export function guideFor(code: string, locale: Locale = i18n.locale): ErrorGuide {
+// model: the printer's make and model (e.g. "Canon iP2700 series"); without
+// it the guide is the common one, with no lamp pattern.
+export function guideFor(code: string, locale: Locale = i18n.locale, model?: string): ErrorGuide {
   const table = GUIDES[locale] || en;
   const g = table[code] || en[code];
-  if (g) return g;
-  const unknown = table['*'];
-  return { ...unknown, cause: `${unknown.cause} (${code})`, service: /^[5-9A-F]/.test(code) };
+  if (!g) {
+    const unknown = table['*'];
+    return { ...unknown, cause: `${unknown.cause} (${code})`, service: /^[5-9A-F]/.test(code) };
+  }
+  const cartridges = cartridgesFor(model, locale);
+  return {
+    ...g,
+    steps: g.steps.map((s) => s.replace('{cartridges}', cartridges)),
+    blink: model && BLINK_FAMILY.test(model) ? g.blink : undefined,
+  };
 }
 
 export function warningText(code: string, locale: Locale = i18n.locale): string {

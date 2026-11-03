@@ -179,7 +179,7 @@
       {#each p.codes ?? [] as c (c)}
         <div class="row">
           <CircleAlert size={18} class="err" />
-          <span><b>{t('Code {code}', { code: c })}</b> · {guideFor(c, i18n.locale).title}</span>
+          <span><b>{t('Code {code}', { code: c })}</b> · {guideFor(c, i18n.locale, p.model).title}</span>
         </div>
       {/each}
       {#each p.reasons as r}
