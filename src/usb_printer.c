@@ -69,6 +69,7 @@ typedef struct {
     usb_transfer_t *stat;               // IVEC GetStatus request for printers that push no status
     volatile bool stat_inflight;
     bool stat_wanted;                   // ask once: after the printer appeared, and after a job
+    TickType_t stat_wanted_until;       // ... but only within STAT_ASK_WINDOW_MS; later silence is sleep
     TickType_t stat_last;
     volatile bool ctrl_done;
     SemaphoreHandle_t ctrl_sem;
@@ -119,6 +120,7 @@ static void out_cb(usb_transfer_t *xfer)
 // out only when the printer appears and after a job, never periodically: a
 // silent printer is left asleep, and its last status stands.
 #define STAT_EMPTY_READS 3
+#define STAT_ASK_WINDOW_MS 30000        // a request still pending after this is dropped
 #define IN_POLL_ASLEEP_MS 15000         // reads do not wake it; just fewer of them
 static const char XML_GET_STATUS[] =
     "<?xml version=\"1.0\" encoding=\"utf-8\" ?><cmd xmlns:ivec=\"http://www.canon.com/ns/cmd/2008/07/common/\">"
@@ -196,6 +198,7 @@ static void handle_reply(const char *msg)
     xml_value(msg, "<ivec:response_detail>", detail, sizeof(detail));
     if (strcmp(op, "GetStatusResponse") == 0) {
         char status[24], sdetail[48], data[320], summary[sizeof(s_p.last_status)];
+        s_p.stat_wanted = false;        // it talks: no need to ask
         xml_value(msg, "<ivec:status>", status, sizeof(status));
         xml_value(msg, "<ivec:status_detail>", sdetail, sizeof(sdetail));
         xml_value(msg, "<![CDATA[", data, sizeof(data));
@@ -562,6 +565,7 @@ static void open_device(uint8_t addr)
     s_p.stat_inflight = false;
     s_p.stat_last = 0;
     s_p.stat_wanted = true;             // once it is open: the iP2700 answers nothing before
+    s_p.stat_wanted_until = xTaskGetTickCount() + pdMS_TO_TICKS(STAT_ASK_WINDOW_MS);
     s_p.in_empty = 0;
 
     if (s_p.alt != 0) {
@@ -645,6 +649,8 @@ static void client_task(void *arg)
                               : s_p.in_empty >= STAT_EMPTY_READS && !s_p.stat_wanted ? IN_POLL_ASLEEP_MS
                                                                                        : IN_POLL_IDLE_MS))
             in_submit();
+        if (s_p.stat_wanted && (int32_t)(xTaskGetTickCount() - s_p.stat_wanted_until) > 0)
+            s_p.stat_wanted = false;    // too late: silence now means sleep, and a request would wake it
         if (s_p.connected && !s_p.gone && !s_p.job_active && !s_p.scan_active && !s_p.in_inflight &&
             s_p.stat_wanted && s_p.in_empty >= STAT_EMPTY_READS)
             stat_submit();
@@ -1033,5 +1039,6 @@ void usb_scanner_end(void)
         free_scan_transfers();
     s_p.in_last = xTaskGetTickCount();     // resume the printer's status polling later
     s_p.stat_wanted = true;                // and ask once if it stays silent
+    s_p.stat_wanted_until = xTaskGetTickCount() + pdMS_TO_TICKS(STAT_ASK_WINDOW_MS);
     s_p.job_active = false;
 }
