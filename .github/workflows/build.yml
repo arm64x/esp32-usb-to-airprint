@@ -1,0 +1,136 @@
+# Builds the firmware on every push and pull request, and publishes it:
+#  - esp32-usb-to-airprint.bin: one image for address 0x0 (bootloader,
+#    partition table, OTA data and app), for esptool / Flash Download Tool
+#  - esp32-usb-to-airprint-parts.zip: the four parts with their offsets
+#  - the web installer site (flasher/), deployed to GitHub Pages from master
+#    (Settings -> Pages -> Source: GitHub Actions)
+# A tag v* also attaches the files to a GitHub Release.
+name: Build firmware
+
+on:
+  push:
+    branches: [master, ip2700]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  NAME: esp32-usb-to-airprint
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            flasher/package-lock.json
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: platformio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+
+      - name: Install PlatformIO, esptool and the installer's packages
+        run: |
+          pip install platformio esptool
+          (cd flasher && npm ci)
+
+      - name: Host tests
+        run: |
+          make -C host -s bjl_host oled_host wifisetup_host
+          host/bjl_host selftest
+          host/oled_host selftest
+          host/wifisetup_host selftest
+          (cd web && npm ci && npm run check && npm test)
+
+      - name: Build the firmware (MODE=normal, no WiFi built in)
+        id: build
+        run: |
+          base=$(sed -n 's/^set(PROJECT_VER "\(.*\)")$/\1/p' CMakeLists.txt)
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF#refs/tags/v}"
+          else
+            version="$base-${GITHUB_SHA::7}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          printf 'MODE=normal\n' > .env
+          FIRMWARE_VERSION="$version" pio run -e esp32s3
+
+      - name: Pack the images
+        run: |
+          b=.pio/build/esp32s3
+          mkdir -p out/parts
+          # one image for address 0x0; the flash settings are the ones ESP-IDF wrote in flasher_args.json
+          read -r mode freq size < <(python3 -c "import json;d=json.load(open('$b/flasher_args.json'))['flash_settings'];print(d['flash_mode'],d['flash_freq'],d['flash_size'])")
+          esptool.py --chip esp32s3 merge_bin -o "out/$NAME.bin" \
+            --flash_mode "$mode" --flash_freq "$freq" --flash_size "$size" \
+            0x0 "$b/bootloader.bin" 0x8000 "$b/partitions.bin" 0xf000 "$b/ota_data_initial.bin" 0x20000 "$b/firmware.bin"
+          cp "$b/bootloader.bin" "$b/partitions.bin" "$b/ota_data_initial.bin" "$b/firmware.bin" out/parts/
+          cat > out/parts/FLASH.txt <<EOF
+          $NAME ${{ steps.build.outputs.version }} for ESP32-S3 (16 MB flash)
+
+          One image, erases nothing but what it writes:
+            esptool.py --chip esp32s3 write_flash 0x0 $NAME.bin
+
+          The same as four parts (an update that keeps the saved WiFi uses only the app):
+            esptool.py --chip esp32s3 write_flash 0x0 bootloader.bin 0x8000 partitions.bin 0xf000 ota_data_initial.bin 0x20000 firmware.bin
+          EOF
+          (cd out/parts && zip -q "../$NAME-parts.zip" ./*)
+          ls -l out
+
+      - name: Build the web installer site
+        run: |
+          python3 tools/gen_flasher.py site normal --label "Standard"
+          cp "out/$NAME.bin" site/
+          ls -lR site | head -40
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}-${{ steps.build.outputs.version }}
+          path: |
+            out/${{ env.NAME }}.bin
+            out/${{ env.NAME }}-parts.zip
+          if-no-files-found: error
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            out/${{ env.NAME }}.bin
+            out/${{ env.NAME }}-parts.zip
+          generate_release_notes: true
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
