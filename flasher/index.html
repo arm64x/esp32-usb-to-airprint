@@ -80,16 +80,16 @@
     </div>
   </div>
   <p class="lead" data-lang="vi">Biến máy in USB cũ thành máy in Wi-Fi (AirPrint, Mopria) bằng một board ESP32-S3. Trang này cài firmware lên board ngay trong trình duyệt, không cần cài phần mềm.
-    <a href="https://github.com/arm64x/esp32-usb-to-airprint">Mã nguồn trên GitHub</a></p>
+    <a href="https://github.com/ngxson/esp32-usb-to-airprint">Mã nguồn trên GitHub</a></p>
   <p class="lead" data-lang="en">Turn an old USB printer into a Wi-Fi printer (AirPrint, Mopria) with an ESP32-S3 board. This page installs the firmware from the browser; nothing to install on the computer.
-    <a href="https://github.com/arm64x/esp32-usb-to-airprint">Source on GitHub</a></p>
+    <a href="https://github.com/ngxson/esp32-usb-to-airprint">Source on GitHub</a></p>
 
   <!-- ===== 1. Chuẩn bị ===== -->
   <section>
     <h2><span class="n">1</span><span data-lang="vi">Chuẩn bị</span><span data-lang="en">What you need</span></h2>
     <div data-lang="vi">
       <ol>
-        <li><b>Board ESP32-S3</b> (ESP32 thường hoặc ESP32-C3 không dùng được). Nên chọn bản <b>N16R8</b>: 16 MB flash, 8 MB PSRAM. Flash phải từ 16 MB. <a href="https://s.shopee.vn/9KjJ48lfq8" target="_blank" rel="noopener">Bấm vào đây để mua ESP32-S3 N16R8</a> (Shopee).</li>
+        <li><b>Board ESP32-S3</b> (ESP32 thường hoặc ESP32-C3 không dùng được). Nên chọn bản <b>N16R8</b>: 16 MB flash, 8 MB PSRAM. Flash phải từ 16 MB. <br /><a href="https://s.shopee.vn/9KjJ48lfq8" target="_blank" rel="noopener">Bấm vào đây để mua ESP32-S3 N16R8</a> (Shopee).</li>
         <li><b>Cắm board vào máy tính bằng cổng COM</b> (có board ghi UART). <b>Không</b> cắm cổng ghi USB: cổng đó dành cho máy in. Board một cổng thì cắm cổng đó.</li>
         <li><b>Trình duyệt Chrome, Edge, Cốc Cốc hoặc Brave</b> trên Windows, macOS hoặc Linux (mọi trình duyệt gốc Chromium đều được). Safari, Firefox và điện thoại không có Web Serial nên không nối được với board; khi đó nạp bằng esptool, xem mục Sự cố.</li>
         <li>Cáp USB có dây dữ liệu, không phải cáp chỉ sạc.</li>
@@ -101,7 +101,7 @@
     </div>
     <div data-lang="en">
       <ol>
-        <li>An <b>ESP32-S3 board</b> (a plain ESP32 or an ESP32-C3 will not do). Prefer the <b>N16R8</b> version: 16 MB flash, 8 MB PSRAM. The flash must be 16 MB or more. <a href="https://s.shopee.vn/9KjJ48lfq8" target="_blank" rel="noopener">Buy an ESP32-S3 N16R8 here</a> (Shopee, Vietnam).</li>
+        <li>An <b>ESP32-S3 board</b> (a plain ESP32 or an ESP32-C3 will not do). Prefer the <b>N16R8</b> version: 16 MB flash, 8 MB PSRAM. The flash must be 16 MB or more. <br /><a href="https://s.shopee.vn/9KjJ48lfq8" target="_blank" rel="noopener">Buy an ESP32-S3 N16R8 here</a> (Shopee, Vietnam).</li>
         <li><b>Plug the board into the computer by its COM port</b> (UART on some boards). <b>Not</b> the port marked USB: that one is for the printer. A board with a single port: use that one.</li>
         <li><b>Chrome, Edge, Cốc Cốc or Brave</b> on Windows, macOS or Linux (any Chromium-based browser works). Safari, Firefox and phones have no Web Serial, so they cannot talk to the board; flash with esptool instead, see Trouble.</li>
         <li>A USB cable with data wires, not a charge-only cable.</li>
