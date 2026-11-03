@@ -25,6 +25,8 @@ host/airprint_host
 host/airprint_host.dSYM/
 host/oled_host
 host/oled_host.dSYM/
+host/wifisetup_host
+host/wifisetup_host.dSYM/
 host/out/
 host/*.prn
 host/*.png
@@ -36,3 +38,6 @@ tools/gutenprint_ref/build/
 __pycache__/
 *.pyc
 .DS_Store
+
+# the installer page packages (cd flasher && npm ci)
+flasher/node_modules/
