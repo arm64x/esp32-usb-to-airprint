@@ -478,6 +478,8 @@ static esp_err_t connect_post(httpd_req_t *req)
     int ssid_len = wifi_setup_form_value(body, len, "ssid", ssid, sizeof(ssid));
     int other_len = wifi_setup_form_value(body, len, "other", other, sizeof(other));
     int pass_len = wifi_setup_form_value(body, len, "password", pass, sizeof(pass));
+    if (strcmp(ssid, "__other__") == 0)      // the "Hidden network" entry of the list: the typed name counts
+        ssid[0] = 0, ssid_len = 0;
     const char *net = other_len > 0 || other_len == -2 ? other : ssid;
     // the names, when the form carries them (saved before the network is tried)
     char pname[SETTINGS_PRINTER_NAME_MAX + 2], host[SETTINGS_HOSTNAME_MAX + 2];
