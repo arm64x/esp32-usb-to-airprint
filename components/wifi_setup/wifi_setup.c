@@ -45,22 +45,41 @@ static int bars(int rssi)
 }
 
 static const char STYLE[] =
-    "body{font:16px/1.4 -apple-system,system-ui,sans-serif;margin:0 auto;max-width:28em;padding:1em;"
-    "color:#222;background:#fff}"
-    "@media(prefers-color-scheme:dark){body{color:#eee;background:#111}.net,input{border-color:#444}"
-    "input{background:#222;color:#eee}}"
-    "h1{font-size:1.3em;margin:0}.sub{margin:0 0 1em;opacity:.7}"
-    ".msg{padding:.7em;border-radius:8px;margin:1em 0}.ok{background:#d9f2dd;color:#14421c}"
-    ".err{background:#f8dcdc;color:#5c1414}.wait{background:#fdf0cc;color:#4d3a00}"
-    "fieldset{border:0;padding:0;margin:0}legend{font-weight:600;margin-bottom:.3em}"
-    ".net{display:flex;align-items:center;gap:.5em;padding:.6em;border:1px solid #ccc;border-radius:8px;"
-    "margin:.3em 0}.net span{flex:1;overflow-wrap:anywhere}.sig{flex:0!important;white-space:nowrap}"
-    ".dim{opacity:.25}label.f{display:block;margin:.8em 0 .2em;font-weight:600}"
-    "input[type=text],input[type=password]{box-sizing:border-box;width:100%;font-size:16px;padding:.6em;"
-    "border:1px solid #ccc;border-radius:8px}"
-    "button{font-size:16px;padding:.7em 1.4em;border:0;border-radius:8px;background:#0a66d8;color:#fff;"
-    "margin-top:1em}button.l{background:none;color:#0a66d8;padding:.4em 0}"
-    ".foot{opacity:.7;font-size:.9em;margin-top:1.5em}";
+    ":root{--bg:#f3f4f7;--card:#fff;--text:#191c23;--muted:#687080;--line:#e2e5eb;--accent:#3f56e0;"
+    "--soft:rgba(63,86,224,.1);--field:#fff}"
+    "@media(prefers-color-scheme:dark){:root{--bg:#101216;--card:#181b21;--text:#e6e8ec;--muted:#979eab;"
+    "--line:#2b3039;--accent:#7c8dff;--soft:rgba(124,141,255,.14);--field:#1e2229}}"
+    "*{box-sizing:border-box}body{font:16px/1.5 -apple-system,system-ui,sans-serif;margin:0;padding:20px 14px 40px;"
+    "color:var(--text);background:var(--bg)}"
+    "main{max-width:30em;margin:0 auto}"
+    ".card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;"
+    "box-shadow:0 1px 2px rgba(16,24,40,.05),0 4px 16px rgba(16,24,40,.06)}"
+    ".hd{display:flex;align-items:center;gap:12px;margin-bottom:14px}"
+    ".ic{width:44px;height:44px;border-radius:12px;background:var(--soft);color:var(--accent);display:grid;"
+    "place-items:center;font-size:22px;flex:none}"
+    "h1{font-size:1.15em;margin:0;line-height:1.25}.sub{margin:2px 0 0;color:var(--muted);font-size:.9em}"
+    ".msg{padding:10px 14px;border-radius:9px;margin:0 0 14px;font-size:.95em}"
+    ".ok{background:rgba(21,128,61,.12);color:#15803d}.err{background:rgba(198,40,40,.1);color:#c62828}"
+    ".wait{background:rgba(180,83,9,.12);color:#b45309}"
+    "fieldset{border:0;padding:0;margin:0}legend{font-weight:600;font-size:.8em;letter-spacing:.04em;"
+    "text-transform:uppercase;color:var(--muted);margin-bottom:6px}"
+    ".net{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--line);"
+    "border-radius:9px;margin:0 0 6px;background:var(--field);cursor:pointer}"
+    ".net:has(:checked){border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}"
+    ".net input{accent-color:var(--accent);margin:0}.net span{flex:1;overflow-wrap:anywhere}"
+    ".sig{flex:0!important;white-space:nowrap;font-size:.8em;color:var(--muted)}.dim{opacity:.25}"
+    "label.f{display:block;margin:14px 0 6px;font-weight:600;font-size:.8em;letter-spacing:.04em;"
+    "text-transform:uppercase;color:var(--muted)}"
+    "input[type=text],input[type=password]{width:100%;font-size:16px;padding:10px 12px;color:var(--text);"
+    "background:var(--field);border:1px solid var(--line);border-radius:9px}"
+    "input:focus{outline:2px solid var(--accent);outline-offset:-1px}"
+    ".sp{display:flex;align-items:center;gap:8px;margin:8px 0 0;font-size:.95em;color:var(--muted)}"
+    ".sp input{accent-color:var(--accent)}"
+    "button{font:inherit;font-weight:600;width:100%;padding:12px 16px;border:0;border-radius:9px;"
+    "background:var(--accent);color:#fff;margin-top:16px;cursor:pointer}"
+    "button.l{background:none;color:var(--accent);margin-top:6px;padding:8px}"
+    ".foot{color:var(--muted);font-size:.85em;margin:16px 0 0;text-align:center}"
+    "p{margin:0 0 12px}";
 
 // room kept for the rest of the page after the list (the form's fields and buttons are about
 // 1 KB): odd names around must not push the password field out of the buffer
@@ -109,9 +128,9 @@ size_t wifi_setup_page(const wifi_setup_page_t *p, char *buf, size_t n)
         put(&o, "<meta http-equiv=refresh content=2>");
     put(&o, "<title>WiFi setup</title><style>");
     put(&o, STYLE);
-    put(&o, "</style></head><body><h1>");
+    put(&o, "</style></head><body><main><div class=card><div class=hd><div class=ic>&#128424;</div><div><h1>");
     put_esc(&o, p->printer_name);
-    put(&o, "</h1><p class=sub>WiFi setup</p>");
+    put(&o, "</h1><p class=sub>WiFi setup</p></div></div>");
 
     switch (p->state) {
     case WIFI_SETUP_CONNECTING:
@@ -122,7 +141,7 @@ size_t wifi_setup_page(const wifi_setup_page_t *p, char *buf, size_t n)
         put_esc(&o, p->ssid);
         put(&o, "</b> again and open <b>http://");
         put_esc(&o, p->hostname);
-        put(&o, ".local/</b>.</p></body></html>");
+        put(&o, ".local/</b>.</p></div></main></body></html>");
         return o.len;
     case WIFI_SETUP_CONNECTED:
         put(&o, "<div class=\"msg ok\">Connected to <b>");
@@ -139,7 +158,7 @@ size_t wifi_setup_page(const wifi_setup_page_t *p, char *buf, size_t n)
             put(&o, "/</b>)");
         }
         put(&o, ".</p><p>To choose another network later, hold the BOOT button for 10 seconds.</p>"
-                "</body></html>");
+                "</div></main></body></html>");
         return o.len;
     case WIFI_SETUP_FAILED:
         put(&o, "<div class=\"msg err\">Could not connect");
@@ -169,13 +188,13 @@ size_t wifi_setup_page(const wifi_setup_page_t *p, char *buf, size_t n)
     put(&o, "\">");
     put(&o, "<label class=f for=password>Password</label>"
             "<input type=password id=password name=password maxlength=64 autocomplete=current-password>"
-            "<label><input type=checkbox onchange=\"password.type=this.checked?'text':'password'\"> "
-            "Show password</label><br>"
+            "<label class=sp><input type=checkbox onchange=\"password.type=this.checked?'text':'password'\"> "
+            "Show password</label>"
             "<button>Connect</button></form>"
             "<form method=post action=/rescan><button class=l>Scan again</button></form>");
     put(&o, "<p class=foot>Once connected, the printer is at http://");
     put_esc(&o, p->hostname);
-    put(&o, ".local/</p></body></html>");
+    put(&o, ".local/</p></div></main></body></html>");
     return o.len;
 }
 
