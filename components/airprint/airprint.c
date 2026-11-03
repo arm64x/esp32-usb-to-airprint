@@ -1416,13 +1416,25 @@ int airprint_status_json(void *ctx, char *buf, size_t n)
         PUT(i ? "," : "");
         STR(st.reasons[i]);
     }
+    PUT("],\"codes\":[");
+    for (int i = 0; i < st.ncodes; i++) {
+        PUT(i ? "," : "");
+        STR(st.codes[i]);
+    }
+    PUT("],\"warnings\":[");
+    for (int i = 0; i < st.nwarnings; i++) {
+        PUT(i ? "," : "");
+        STR(st.warnings[i]);
+    }
     PUT("],\"supplies\":[");
     for (int i = 0; i < st.nsupplies; i++) {
         PUT("%s{\"name\":", i ? "," : "");
         STR(st.supply[i].name);
         PUT(",\"color\":");
         STR(st.supply[i].color);
-        PUT(",\"level\":%d}", st.supply[i].level);
+        PUT(",\"level\":%d,\"state\":", st.supply[i].level);
+        STR(st.supply[i].state);
+        PUT("}");
     }
     PUT("],\"active\":%d,\"jobs\":[", s_active ? s_active->id : 0);
     int listed = 0;

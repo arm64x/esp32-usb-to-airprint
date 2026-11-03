@@ -163,6 +163,91 @@ static void add_reason(airprint_status_t *st, const char *reason)
         st->reasons[st->nreasons++] = reason;
 }
 
+static void add_reason_once(airprint_status_t *st, const char *reason)
+{
+    for (int i = 0; i < st->nreasons; i++)
+        if (strcmp(st->reasons[i], reason) == 0)
+            return;
+    add_reason(st, reason);
+}
+
+// The value of "KEY:" in the status data, up to ';' (at most n-1 chars); "" if absent
+static void field(const char *data, const char *key, char *out, size_t n)
+{
+    out[0] = 0;
+    const char *p = data ? strstr(data, key) : NULL;
+    if (!p)
+        return;
+    p += strlen(key);
+    size_t i = 0;
+    while (p[i] && p[i] != ';' && i < n - 1) {
+        out[i] = p[i];
+        i++;
+    }
+    out[i] = 0;
+}
+
+static bool is_code(const char *t)
+{
+    size_t n = strlen(t);
+    if (n < 3 || n > 7)
+        return false;
+    for (size_t i = 0; i < n; i++)
+        if (!((t[i] >= '0' && t[i] <= '9') || (t[i] >= 'A' && t[i] <= 'F')))
+            return false;
+    return true;       // "NO", "UK" fall through as not-a-code
+}
+
+static void add_code(char (*list)[8], int *count, int max, const char *code)
+{
+    for (int i = 0; i < *count; i++)
+        if (strcmp(list[i], code) == 0)
+            return;
+    if (*count < max)
+        snprintf(list[(*count)++], 8, "%s", code);
+}
+
+// "DOC:4,01,1200,/,4,01,1000": operator calls, groups separated by ",/,", the
+// support code is the 3rd field of each (Canon's lgmon reads it the same way).
+// "DSC:5100" service calls and "DWS:1500" warnings are plain comma lists.
+static void codes_from(const char *data, const char *key, bool grouped, char (*list)[8], int *count, int max)
+{
+    char v[96];
+    field(data, key, v, sizeof(v));
+    if (!v[0])
+        return;
+    char *save = NULL;
+    int n = 0;
+    for (char *t = strtok_r(v, ",", &save); t; t = strtok_r(NULL, ",", &save)) {
+        if (strcmp(t, "/") == 0) {
+            n = 0;
+            continue;
+        }
+        n++;
+        if (grouped && n != 3)
+            continue;
+        if (is_code(t))
+            add_code(list, count, max, t);
+    }
+}
+
+// "CTK:CL,SETZ,/,BK,SETZ" -> the state of the cartridge `key` ("BK" or "CL"), "" if absent
+static void cartridge_state(const char *data, const char *key, char *out, size_t n)
+{
+    char v[64];
+    out[0] = 0;
+    field(data, "CTK:", v, sizeof(v));
+    char *save = NULL;
+    bool next = false;
+    for (char *t = strtok_r(v, ",", &save); t; t = strtok_r(NULL, ",", &save)) {
+        if (next) {
+            snprintf(out, n, "%s", t);
+            return;
+        }
+        next = strcmp(t, key) == 0;
+    }
+}
+
 // "CIR:CL=000,BK=UK" -> remaining ink in percent, -2 = unknown
 static int ink_level(const char *data, const char *key)
 {
@@ -209,6 +294,41 @@ static void status(const char *state, const char *detail, const char *data, airp
     st->supply[1].name = "Color";
     st->supply[1].color = "#00FFFF#FF00FF#FFFF00";
     st->supply[1].level = data ? ink_level(data, "CL=") : -2;
+    if (!data)
+        return;
+    cartridge_state(data, "BK", st->supply[0].state, sizeof(st->supply[0].state));
+    cartridge_state(data, "CL", st->supply[1].state, sizeof(st->supply[1].state));
+
+    // the printer's own support codes: service calls first, then operator calls
+    const int max = (int)(sizeof(st->codes) / sizeof(st->codes[0]));
+    codes_from(data, "DSC:", false, st->codes, &st->ncodes, max);
+    codes_from(data, "DOC:", true, st->codes, &st->ncodes, max);
+    codes_from(data, "DWS:", false, st->warnings, &st->nwarnings, (int)(sizeof(st->warnings) / sizeof(st->warnings[0])));
+    // and IPP reasons for AirPrint clients, when the XML detail did not say
+    for (int i = 0; i < st->ncodes; i++) {
+        const char *c = st->codes[i];
+        const char *reason = NULL;
+        if (!strcmp(c, "1000") || !strcmp(c, "1003"))
+            reason = "media-empty-error";
+        else if (!strcmp(c, "1300"))
+            reason = "media-jam-error";
+        else if (!strcmp(c, "1200"))
+            reason = "cover-open-error";
+        else if (!strcmp(c, "1688") || !strcmp(c, "1401") || !strcmp(c, "1485") || !strcmp(c, "1687"))
+            reason = "marker-supply-empty-error";
+        else if (!strcmp(c, "1686"))
+            reason = "marker-supply-low-warning";
+        else if (c[0] >= '5' || c[0] == 'B')
+            reason = "other-error";
+        if (reason) {
+            add_reason_once(st, reason);
+            if (!st->message[0])
+                snprintf(st->message, sizeof(st->message), "Printer error %s", c);
+        }
+    }
+    for (int i = 0; i < st->nwarnings; i++)
+        if (!strcmp(st->warnings[i], "1500") || !strcmp(st->warnings[i], "1499"))
+            add_reason_once(st, "marker-supply-low-warning");
 }
 
 // ---------------------------------------------------------------------------

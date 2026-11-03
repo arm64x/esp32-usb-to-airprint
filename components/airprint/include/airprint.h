@@ -26,10 +26,17 @@ typedef struct {
     const char *reasons[6];
     int nreasons;
     char message[96];           // printer-state-message
+    // the printer's own error codes (Canon support codes such as "1000" paper
+    // out, "1300" jam, "5100" service), most severe first; shown by the web UI
+    char codes[6][8];
+    int ncodes;
+    char warnings[4][8];        // non-blocking warnings, e.g. "1500" ink low
+    int nwarnings;
     struct {
         const char *name;       // "Black", "Color"
         const char *color;      // "#000000", "#00FFFF#FF00FF#FFFF00"
         int level;              // 0..100, -2 unknown, -3 some remaining
+        char state[8];          // the printer's cartridge state, e.g. "SET", "LOW", "SETZ"; "" unknown
     } supply[AIRPRINT_MAX_SUPPLIES];
     int nsupplies;
 } airprint_status_t;
