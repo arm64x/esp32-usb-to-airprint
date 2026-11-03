@@ -1,14 +1,21 @@
 // Paper sizes and where content goes on the sheet. Units: PostScript points
 // (1/72 in), origin top left, y down.
 
+import { t } from './i18n.ts';
+
 export type PaperId = 'a4' | 'letter';
 export type Fit = 'fit' | 'fill' | 'actual';
 export type Orientation = 'auto' | 'portrait' | 'landscape';
+// where the content sits inside the printable area: top/middle/bottom x left/center/right
+export type Anchor = 'tl' | 't' | 'tr' | 'l' | 'c' | 'r' | 'bl' | 'b' | 'br';
+export const ANCHORS: Anchor[] = ['tl', 't', 'tr', 'l', 'c', 'r', 'bl', 'b', 'br'];
+export const ZOOM_MIN = 10;
+export const ZOOM_MAX = 400;
 export type Rotation = 0 | 90 | 180 | 270; // clockwise
 
 export const PAPERS: Record<PaperId, { name: string; w: number; h: number; wIn: number; hIn: number }> = {
   a4: { name: 'A4', w: (210 / 25.4) * 72, h: (297 / 25.4) * 72, wIn: 210 / 25.4, hIn: 297 / 25.4 },
-  letter: { name: 'Letter', w: 612, h: 792, wIn: 8.5, hIn: 11 },
+  letter: { get name() { return t('Letter'); }, w: 612, h: 792, wIn: 8.5, hIn: 11 },
 };
 
 // what the MG2500 cannot print (canon_bjl: 10/10/9/15 pt)
@@ -42,13 +49,23 @@ export function rotatedSize(w: number, h: number, rot: Rotation): [number, numbe
   return rot === 90 || rot === 270 ? [h, w] : [w, h];
 }
 
-// content: w x h points (as the source says, e.g. a PDF page or a scan at its dpi)
+function anchorFractions(anchor: Anchor): [number, number] {
+  const fx = anchor.endsWith('l') ? 0 : anchor.endsWith('r') ? 1 : 0.5;
+  const fy = anchor.startsWith('t') ? 0 : anchor.startsWith('b') ? 1 : 0.5;
+  return [fx, fy];
+}
+
+// content: w x h points (as the source says, e.g. a PDF page or a scan at its dpi).
+// zoom: percent of the fitted (or actual) size, e.g. 50 prints at half size;
+// anchor: where the content goes in the printable area when it is smaller.
 export function place(
   w: number,
   h: number,
   paper: PaperId,
   fit: Fit,
   orientation: Orientation,
+  zoom = 100,
+  anchor: Anchor = 'c',
 ): Placement {
   const P = PAPERS[paper];
   const landscape = orientation === 'landscape' || (orientation === 'auto' && w > h * 1.02);
@@ -57,22 +74,29 @@ export function place(
   const [rw, rh] = rotatedSize(w, h, rot);
   const aw = P.w - MARGINS.left - MARGINS.right;
   const ah = P.h - MARGINS.top - MARGINS.bottom;
+  const z = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom || 100)) / 100;
+  const [fx, fy] = anchorFractions(anchor);
   let scale: number, x: number, y: number;
   if (fit === 'fit') {
-    scale = Math.min(aw / rw, ah / rh);
-    x = MARGINS.left + (aw - rw * scale) / 2;
-    y = MARGINS.top + (ah - rh * scale) / 2;
+    scale = Math.min(aw / rw, ah / rh) * z;
+    x = MARGINS.left + (aw - rw * scale) * fx;
+    y = MARGINS.top + (ah - rh * scale) * fy;
   } else if (fit === 'fill') {
     scale = Math.max(P.w / rw, P.h / rh);
     x = (P.w - rw * scale) / 2;
     y = (P.h - rh * scale) / 2;
   } else {
     // actual size: a full-page scan lands exactly where the original was
-    scale = 1;
-    x = Math.max(0, (P.w - rw) / 2);
-    y = Math.max(0, (P.h - rh) / 2);
-    if (rw > P.w) x = 0;
-    if (rh > P.h) y = 0;
+    scale = z;
+    if (z === 1 && anchor === 'c') {
+      x = Math.max(0, (P.w - rw) / 2);
+      y = Math.max(0, (P.h - rh) / 2);
+      if (rw > P.w) x = 0;
+      if (rh > P.h) y = 0;
+    } else {
+      x = Math.max(0, MARGINS.left + (aw - rw * scale) * fx);
+      y = Math.max(0, MARGINS.top + (ah - rh * scale) * fy);
+    }
   }
   return { rot, scale, x, y, w: rw * scale, h: rh * scale };
 }

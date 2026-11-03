@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t, i18n } from "./lib/i18n.svelte";
+  import type { Message } from "./lib/i18n";
   import { onMount } from 'svelte';
   import ArrowLeft from '@lucide/svelte/icons/arrow-left';
   import Sidebar from './components/Sidebar.svelte';
@@ -6,6 +8,7 @@
   import PrintDialog from './components/PrintDialog.svelte';
   import Viewer from './components/Viewer.svelte';
   import FilePicker from './components/FilePicker.svelte';
+  import ErrorDialog from './components/ErrorDialog.svelte';
   import PrinterView from './views/PrinterView.svelte';
   import ScannerView from './views/ScannerView.svelte';
   import FilesView from './views/FilesView.svelte';
@@ -18,7 +21,7 @@
 
   const ROUTES = ['printer', 'scanner', 'files', 'process'] as const;
   type Route = (typeof ROUTES)[number];
-  const TITLES: Record<Route, string> = { printer: 'Printer', scanner: 'Scanner', files: 'Files', process: 'Process' };
+  const TITLES: Record<Route, Message> = { printer: 'Printer', scanner: 'Scanner', files: 'Files', process: 'Process' };
 
   let hash = $state(location.hash);
   let narrow = $state(false);
@@ -44,8 +47,9 @@
   });
 
   $effect(() => {
+    document.documentElement.lang = i18n.locale;
     const name = device.printer?.name;
-    document.title = current ? `${TITLES[current]} · ${name || 'Printer'}` : name || 'Printer';
+    document.title = current ? `${t(TITLES[current])} · ${name || t('Printer')}` : name || t('Printer');
   });
 </script>
 
@@ -55,8 +59,8 @@
     <main>
       {#if narrow}
         <header class="topbar">
-          <a class="icon-btn" href="#/" aria-label="Back to the menu"><ArrowLeft size={20} /></a>
-          <h1>{TITLES[current]}</h1>
+          <a class="icon-btn" href="#/" aria-label={t('Back to the menu')}><ArrowLeft size={20} /></a>
+          <h1>{t(TITLES[current])}</h1>
         </header>
       {/if}
       <div class="content">
@@ -83,6 +87,7 @@
 {#if ui.picker}
   <FilePicker {...ui.picker} onclose={() => (ui.picker = null)} />
 {/if}
+<ErrorDialog />
 <Toasts />
 
 <style>

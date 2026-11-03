@@ -2,8 +2,9 @@
 // time (phones limit the canvas size), compressed to URF and sent to the
 // device as an IPP Print-Job, which streams them straight to the printer.
 
+import { t } from './i18n.ts';
 import { decodeResponse, printJobRequest, statusOk, statusText } from './ipp';
-import { paperPixels, place, type Fit, type Orientation, type PaperId } from './layout';
+import { paperPixels, place, type Anchor, type Fit, type Orientation, type PaperId } from './layout';
 import type { Source } from './source';
 import { UrfLineEncoder, urfFileHeader, urfPageHeader } from './urf';
 
@@ -11,6 +12,8 @@ export interface PrintOptions {
   paper: PaperId;
   fit: Fit;
   orientation: Orientation;
+  zoom?: number; // percent of the fitted size (default 100)
+  anchor?: Anchor; // default 'c'
   pages: number[]; // 0-based, in print order
   copies: number;
   gray: boolean;
@@ -35,13 +38,13 @@ export async function renderJob(src: Source, o: PrintOptions, progress: Progress
   let done = 0;
   for (const i of o.pages) {
     const ps = src.pages[i];
-    const pl = place(ps.w, ps.h, o.paper, o.fit, o.orientation);
+    const pl = place(ps.w, ps.h, o.paper, o.fit, o.orientation, o.zoom, o.anchor);
     const top = Math.max(0, Math.floor(pl.y * k));
     const bottom = Math.min(H, Math.ceil((pl.y + pl.h) * k));
     const enc = new UrfLineEncoder(W, o.gray);
     const parts: BlobPart[] = [header as BlobPart];
     for (let y0 = 0; y0 < H; y0 += band) {
-      if (signal.aborted) throw new DOMException('canceled', 'AbortError');
+      if (signal.aborted) throw new DOMException(t('canceled'), 'AbortError');
       const rows = Math.min(band, H - y0);
       if (y0 + rows <= top || y0 >= bottom) {
         enc.addWhite(rows);
@@ -86,7 +89,7 @@ export function sendJob(
     xhr.responseType = 'arraybuffer';
     xhr.upload.onprogress = (e) => e.lengthComputable && upload(e.loaded / e.total);
     xhr.onload = () => {
-      if (xhr.status !== 200) return reject(new Error(`the printer answered HTTP ${xhr.status}`));
+      if (xhr.status !== 200) return reject(new Error(t('the printer answered HTTP {status}', { status: xhr.status })));
       try {
         const r = decodeResponse(xhr.response);
         if (!statusOk(r.status)) return reject(new Error(statusText(r)));
@@ -95,8 +98,8 @@ export function sendJob(
         reject(e);
       }
     };
-    xhr.onerror = () => reject(new Error('the connection to the printer was lost'));
-    xhr.onabort = () => reject(new DOMException('canceled', 'AbortError'));
+    xhr.onerror = () => reject(new Error(t('the connection to the printer was lost')));
+    xhr.onabort = () => reject(new DOMException(t('canceled'), 'AbortError'));
     signal.addEventListener('abort', () => xhr.abort());
     xhr.send(new Blob([printJobRequest(name, 'image/urf') as BlobPart, doc]));
   });

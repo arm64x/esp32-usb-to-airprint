@@ -1,10 +1,13 @@
 // Live device state: the JSON snapshot the server pushes on GET /events
 // (components/airprint/events.c) whenever something changes.
 
+import { t, i18n } from './i18n.svelte';
+
 export interface Supply {
   name: string;
   color: string;
   level: number; // 0..100, < 0 unknown
+  state?: string; // the printer's cartridge state, e.g. "SET", "LOW", "SETZ"
 }
 
 export interface Job {
@@ -25,6 +28,8 @@ export interface PrinterState {
   state: 'idle' | 'processing' | 'stopped';
   message: string;
   reasons: string[];
+  codes?: string[]; // the printer's own error codes (Canon support codes), most severe first
+  warnings?: string[]; // non-blocking warnings, e.g. "1500" ink low
   supplies: Supply[];
   active: number;
   jobs: Job[];
@@ -114,5 +119,21 @@ export async function refresh() {
 
 export function inkSummary(p: PrinterState | null): string {
   if (!p || !p.supplies.length) return '';
-  return p.supplies.map((s) => `${s.name} ${s.level >= 0 ? s.level + '%' : '?'}`).join(' · ');
+  return p.supplies.map((s) => {
+    const name = deviceLabel(s.name);
+    const level = s.level >= 0 ? s.level.toLocaleString(i18n.locale) + '%' : '?';
+    return `${name} ${level}`;
+  }).join(' · ');
+}
+
+// Translate known device labels; preserve unknown device/vendor messages.
+const DEVICE_LABELS = [
+  'Ready', 'Printing', 'Scanning', 'Ink cartridge empty or missing', 'Ink low',
+  'Out of paper', 'Paper jam', 'Cover open', 'Printer not connected',
+  'Dev mode: jobs are not printed', 'Black', 'Color', 'Cyan', 'Magenta', 'Yellow',
+] as const;
+
+export function deviceLabel(value: string): string {
+  const key = DEVICE_LABELS.find((key) => key === value);
+  return key ? t(key) : value;
 }
