@@ -150,7 +150,9 @@ static void test_page(void)
     size_t n = wifi_setup_page(&p, buf, sizeof(buf));
     CHECK(n == strlen(buf) && n < 8192);
     CHECK(strstr(buf, "<form method=post action=/connect>"));
-    CHECK(strstr(buf, "value=\"Home\" checked>"));      // the first network is chosen
+    CHECK(strstr(buf, "value=\"\" disabled selected>"));  // nothing chosen yet: the placeholder
+    CHECK(strstr(buf, "value=\"Home\">") && !strstr(buf, "value=\"Home\" selected>"));
+    CHECK(strstr(buf, "value=\"__other__\">Hidden network"));
     // names are escaped in text and attributes
     CHECK(strstr(buf, "value=\"Caf\xc3\xa9 &lt;Free&gt; &amp; &quot;WiFi&quot;\">"));
     CHECK(strstr(buf, "Neighbour&#39;s"));
@@ -166,7 +168,10 @@ static void test_page(void)
     p.ssid = "Neighbour's";
     wifi_setup_page(&p, buf, sizeof(buf));
     CHECK(strstr(buf, "Could not connect to <b>Neighbour&#39;s</b>: wrong password."));
-    CHECK(strstr(buf, "value=\"Neighbour&#39;s\" checked>") && !strstr(buf, "value=\"Home\" checked>"));
+    CHECK(strstr(buf, "value=\"Neighbour&#39;s\" selected>") && !strstr(buf, "value=\"Home\" selected>"));
+    p.ssid = "MyHidden";       // a hidden network being retried: the "Hidden network" entry and its name
+    wifi_setup_page(&p, buf, sizeof(buf));
+    CHECK(strstr(buf, "value=\"__other__\" selected>") && strstr(buf, "value=\"MyHidden\">"));
 
     p.ssid = "";
     p.error = "choose a network";
