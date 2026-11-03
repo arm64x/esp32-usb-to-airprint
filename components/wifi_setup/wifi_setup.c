@@ -61,17 +61,15 @@ static const char STYLE[] =
     ".msg{padding:10px 14px;border-radius:9px;margin:0 0 14px;font-size:.95em}"
     ".ok{background:rgba(21,128,61,.12);color:#15803d}.err{background:rgba(198,40,40,.1);color:#c62828}"
     ".wait{background:rgba(180,83,9,.12);color:#b45309}"
-    "fieldset{border:0;padding:0;margin:0}legend{font-weight:600;font-size:.8em;letter-spacing:.04em;"
-    "text-transform:uppercase;color:var(--muted);margin-bottom:6px}"
-    ".net{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--line);"
-    "border-radius:9px;margin:0 0 6px;background:var(--field);cursor:pointer}"
-    ".net:has(:checked){border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}"
-    ".net input{accent-color:var(--accent);margin:0}.net span{flex:1;overflow-wrap:anywhere}"
-    ".sig{flex:0!important;white-space:nowrap;font-size:.8em;color:var(--muted)}.dim{opacity:.25}"
     "label.f{display:block;margin:14px 0 6px;font-weight:600;font-size:.8em;letter-spacing:.04em;"
     "text-transform:uppercase;color:var(--muted)}"
-    "input[type=text],input[type=password]{width:100%;font-size:16px;padding:10px 12px;color:var(--text);"
-    "background:var(--field);border:1px solid var(--line);border-radius:9px}"
+    "input[type=text],input[type=password],select{width:100%;font-size:16px;padding:10px 12px;color:var(--text);"
+    "background:var(--field);border:1px solid var(--line);border-radius:9px;font-family:inherit}"
+    "select{appearance:none;-webkit-appearance:none;padding-right:36px;background-image:url(\"data:image/svg+xml,"
+    "%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' "
+    "stroke='%23687080' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\");"
+    "background-repeat:no-repeat;background-position:right 12px center}"
+    ".hint{color:var(--muted);font-size:.9em;margin:6px 0 0}"
     "input:focus{outline:2px solid var(--accent);outline-offset:-1px}"
     ".sp{display:flex;align-items:center;gap:8px;margin:8px 0 0;font-size:.95em;color:var(--muted)}"
     ".sp input{accent-color:var(--accent)}"
@@ -85,35 +83,48 @@ static const char STYLE[] =
 // 1 KB): odd names around must not push the password field out of the buffer
 #define TAIL_ROOM 1536
 
+// The networks as a drop-down: a placeholder until one is picked, the
+// networks strongest first (lit signal bars, a lock for a secured one), and
+// "Hidden network" last, which reveals the name field. The password field
+// appears once a network is picked (the script below; without JavaScript
+// both fields simply show).
 static void network_list(out_t *o, const wifi_setup_page_t *p)
 {
-    put(o, "<fieldset><legend>Network (2.4 GHz)</legend>");
-    bool checked = false;
-    for (int i = 0; i < p->n_networks && o->n - o->len > TAIL_ROOM + 512; i++) {
+    bool other = p->ssid && *p->ssid;
+    for (int i = 0; other && i < p->n_networks; i++)
+        if (strcmp(p->ssid, p->networks[i].ssid) == 0)
+            other = false;
+    put(o, "<label class=f for=ssid>Network (2.4 GHz)</label>"
+           "<select id=ssid name=ssid onchange=pick()>"
+           "<option value=\"\" disabled");
+    put(o, p->ssid && *p->ssid ? ">" : " selected>");
+    put(o, "Choose a WiFi network\xe2\x80\xa6</option>");
+    for (int i = 0; i < p->n_networks && o->n - o->len > TAIL_ROOM + 256; i++) {
         const wifi_setup_network_t *w = &p->networks[i];
-        bool c = !checked && (p->ssid ? strcmp(p->ssid, w->ssid) == 0 : i == 0);
-        checked |= c;
-        put(o, "<label class=net><input type=radio name=ssid value=\"");
+        bool c = p->ssid && strcmp(p->ssid, w->ssid) == 0;
+        put(o, "<option value=\"");
         put_esc(o, w->ssid);
-        put(o, c ? "\" checked><span>" : "\"><span>");
+        put(o, c ? "\" selected>" : "\">");
         put_esc(o, w->ssid);
-        put(o, "</span><span class=sig>");
-        int b = bars(w->rssi);
+        put(o, "\xe2\x80\x83");                             // em space
         static const char *const glyph[4] = {"\xe2\x96\x82", "\xe2\x96\x84", "\xe2\x96\x86", "\xe2\x96\x88"};
-        for (int k = 0; k < 4; k++) {
-            put(o, k < b ? "" : "<span class=dim>");
+        int b = bars(w->rssi);
+        for (int k = 0; k < b; k++)
             put(o, glyph[k]);
-            put(o, k < b ? "" : "</span>");
-        }
         put(o, w->secure ? " \xf0\x9f\x94\x92" : "");     // lock
-        put(o, "</span></label>");
+        put(o, "</option>");
     }
+    put(o, "<option value=\"__other__\"");
+    put(o, other ? " selected>" : ">");
+    put(o, "Hidden network\xe2\x80\xa6</option></select>");
     if (p->n_networks == 0)
-        put(o, "<p>No network found. Type its name below, or scan again.</p>");
-    put(o, "<label class=f for=other>Other network</label>"
+        put(o, "<p class=hint>No network found: choose \"Hidden network\" and type its name, or scan again.</p>");
+    put(o, "<div id=otherbox><label class=f for=other>Network name</label>"
            "<input type=text id=other name=other maxlength=32 autocapitalize=none autocorrect=off "
-           "spellcheck=false placeholder=\"Network name (hidden networks)\">"
-           "</fieldset>");
+           "spellcheck=false placeholder=\"Name of the hidden network\" value=\"");
+    if (other)
+        put_esc(o, p->ssid);
+    put(o, "\"></div>");
 }
 
 size_t wifi_setup_page(const wifi_setup_page_t *p, char *buf, size_t n)
@@ -178,6 +189,7 @@ size_t wifi_setup_page(const wifi_setup_page_t *p, char *buf, size_t n)
 
     put(&o, "<form method=post action=/connect>");
     network_list(&o, p);
+    put(&o, "<div id=passbox>");
     put(&o, "<label class=f for=pname>Printer name (shown on phones and computers)</label>"
             "<input type=text id=pname name=pname maxlength=48 autocorrect=off value=\"");
     put_esc(&o, p->printer_name);
@@ -190,8 +202,14 @@ size_t wifi_setup_page(const wifi_setup_page_t *p, char *buf, size_t n)
             "<input type=password id=password name=password maxlength=64 autocomplete=current-password>"
             "<label class=sp><input type=checkbox onchange=\"password.type=this.checked?'text':'password'\"> "
             "Show password</label>"
-            "<button>Connect</button></form>"
-            "<form method=post action=/rescan><button class=l>Scan again</button></form>");
+            "<button>Connect</button></div></form>"
+            "<form method=post action=/rescan><button class=l>Scan again</button></form>"
+            "<script>function pick(){var s=document.getElementById('ssid').value;"
+            "document.getElementById('otherbox').style.display=s=='__other__'?'':'none';"
+            "document.getElementById('passbox').style.display=s?'':'none';"
+            "if(s=='__other__')document.getElementById('other').focus();"
+            "else if(s)document.getElementById('password').focus()}"
+            "pick();</script>");
     put(&o, "<p class=foot>Once connected, the printer is at http://");
     put_esc(&o, p->hostname);
     put(&o, ".local/</p></div></main></body></html>");
