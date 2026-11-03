@@ -3,9 +3,9 @@
 #    partition table, OTA data and app), for esptool / Flash Download Tool
 #  - esp32-usb-to-airprint-parts.zip: the four parts with their offsets
 # Every push updates the rolling pre-release "latest" (Releases page) with
-# these files; a tag v1.2.3 makes a proper release 1.2.3. Pushes to the
-# default branch also deploy the web installer site (flasher/) to GitHub
-# Pages (Settings -> Pages -> Source: GitHub Actions).
+# these files; a tag v1.2.3 makes a proper release 1.2.3. Every branch push
+# also deploys the web installer site (flasher/, with the image next to it)
+# to GitHub Pages (Settings -> Pages -> Source: GitHub Actions).
 name: Build firmware
 
 on:
@@ -93,7 +93,12 @@ jobs:
 
       - name: Build the web installer site
         run: |
-          python3 tools/gen_flasher.py site normal --label "Standard"
+          # flasher/ is static: the page, the manifest, esp-web-tools, esptool-js and the image it installs
+          mkdir -p site/esp-web-tools
+          cp flasher/index.html site/
+          python3 -c "import json;m=json.load(open('flasher/manifest.json'));m['version']='${{ steps.build.outputs.version }}';json.dump(m,open('site/manifest.json','w'),indent=2)"
+          cp -r flasher/node_modules/esp-web-tools/dist/web/. site/esp-web-tools/
+          cp flasher/node_modules/esptool-js/bundle.js site/esptool.js
           cp "out/$NAME.bin" site/
           ls -lR site | head -40
 
@@ -137,7 +142,7 @@ jobs:
           fail_on_unmatched_files: true
 
   deploy:
-    if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')
     needs: build
     runs-on: ubuntu-latest
     permissions:
