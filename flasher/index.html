@@ -90,6 +90,7 @@
     <div data-lang="vi">
       <ol>
         <li><b>Board ESP32-S3</b> (ESP32 thường hoặc ESP32-C3 không dùng được). Nên chọn bản <b>N16R8</b>: 16 MB flash, 8 MB PSRAM. Flash phải từ 16 MB. <a href="https://s.shopee.vn/9KjJ48lfq8" target="_blank" rel="noopener">Bấm vào đây để mua ESP32-S3 N16R8</a> (Shopee).</li>
+        <li><b>Cáp nối máy in</b>: USB-C sang USB-B (đầu vuông). <a href="https://s.shopee.vn/2qVqP2aOx0" target="_blank" rel="noopener">Cáp thường</a>, chọn <b>bản OTG dài 15 cm</b> vì đầu cắm nhỏ, không vướng cổng USB-C cấp nguồn ngay bên cạnh (bản đầu to cắm vào sẽ che mất cổng đó). Hoặc <a href="https://s.shopee.vn/gRLp7BTnv" target="_blank" rel="noopener">bản xịn dây bọc dù</a> (Shopee).</li>
         <li><b>Cắm board vào máy tính bằng cổng COM</b> (có board ghi UART). <b>Không</b> cắm cổng ghi USB: cổng đó dành cho máy in. Board một cổng thì cắm cổng đó.</li>
         <li><b>Trình duyệt Chrome, Edge, Cốc Cốc hoặc Brave</b> trên Windows, macOS hoặc Linux (mọi trình duyệt gốc Chromium đều được). Safari, Firefox và điện thoại không có Web Serial nên không nối được với board; khi đó nạp bằng esptool, xem mục Sự cố.</li>
         <li>Cáp USB có dây dữ liệu, không phải cáp chỉ sạc.</li>
@@ -102,6 +103,7 @@
     <div data-lang="en">
       <ol>
         <li>An <b>ESP32-S3 board</b> (a plain ESP32 or an ESP32-C3 will not do). Prefer the <b>N16R8</b> version: 16 MB flash, 8 MB PSRAM. The flash must be 16 MB or more. <a href="https://s.shopee.vn/9KjJ48lfq8" target="_blank" rel="noopener">Buy an ESP32-S3 N16R8 here</a> (Shopee, Vietnam).</li>
+        <li><b>A printer cable</b>: USB-C to USB-B. <a href="https://s.shopee.vn/2qVqP2aOx0" target="_blank" rel="noopener">Standard</a>, pick the <b>15 cm OTG version</b>: its small plug does not block the power USB-C port right next to it (the bulky one does). Or the <a href="https://s.shopee.vn/gRLp7BTnv" target="_blank" rel="noopener">braided one</a> (Shopee, Vietnam).</li>
         <li><b>Plug the board into the computer by its COM port</b> (UART on some boards). <b>Not</b> the port marked USB: that one is for the printer. A board with a single port: use that one.</li>
         <li><b>Chrome, Edge, Cốc Cốc or Brave</b> on Windows, macOS or Linux (any Chromium-based browser works). Safari, Firefox and phones have no Web Serial, so they cannot talk to the board; flash with esptool instead, see Trouble.</li>
         <li>A USB cable with data wires, not a charge-only cable.</li>
@@ -192,7 +194,7 @@
     <h2><span class="n">4</span><span data-lang="vi">Cắm máy in</span><span data-lang="en">Plug in the printer</span></h2>
     <div data-lang="vi">
       <ol>
-        <li>Nối máy in vào cổng ghi <b>USB</b> của board bằng cáp USB-C sang USB-B (đầu vuông): <a href="https://s.shopee.vn/2qVqP2aOx0" target="_blank" rel="noopener">mua cáp thường</a> (chọn <b>bản OTG dài 15 cm</b>: đầu cắm nhỏ, không vướng cổng USB-C cấp nguồn ngay bên cạnh; bản đầu to cắm vào sẽ che mất cổng đó) hoặc <a href="https://s.shopee.vn/gRLp7BTnv" target="_blank" rel="noopener">bản xịn dây bọc dù</a> (Shopee). Board một cổng: hàn thêm cổng USB-A cái vào GPIO19 (D-), GPIO20 (D+), 5V và GND.</li>
+        <li>Nối máy in vào cổng ghi <b>USB</b> của board bằng cáp USB-C sang USB-B đã chuẩn bị ở bước 1. Board một cổng: hàn thêm cổng USB-A cái vào GPIO19 (D-), GPIO20 (D+), 5V và GND.</li>
         <li><b>Hàn cầu "USB-OTG"</b> trên board (hai pad nhỏ, thường ở mặt sau) để cổng USB có 5V. Máy in chỉ xuất hiện khi thấy 5V trên cáp.</li>
         <li>Cấp nguồn cho board bằng sạc điện thoại qua cổng COM. Bật máy in.</li>
         <li>Mở <code>http://&lt;địa chỉ&gt;.local/</code>: thấy tên máy in và trạng thái "Sẵn sàng" là xong. In từ iPhone, iPad, Mac (AirPrint), Android (Mopria) hoặc từ chính trang web.</li>
@@ -201,7 +203,7 @@
     </div>
     <div data-lang="en">
       <ol>
-        <li>Connect the printer to the board's port marked <b>USB</b> with a USB-C to USB-B cable (<a href="https://s.shopee.vn/2qVqP2aOx0" target="_blank" rel="noopener">standard</a>, pick the <b>15 cm OTG version</b>: its small plug does not block the power USB-C port right next to it, while the bulky one does; or <a href="https://s.shopee.vn/gRLp7BTnv" target="_blank" rel="noopener">braided</a>, Shopee Vietnam). A single-port board: solder a USB-A socket to GPIO19 (D-), GPIO20 (D+), 5V and GND.</li>
+        <li>Connect the printer to the board's port marked <b>USB</b> with the USB-C to USB-B cable from step 1. A single-port board: solder a USB-A socket to GPIO19 (D-), GPIO20 (D+), 5V and GND.</li>
         <li><b>Bridge the "USB-OTG" solder pads</b> on the board (two small pads, usually underneath) so that the USB port carries 5 V. The printer only shows up when it sees 5 V on the cable.</li>
         <li>Power the board from a phone charger on the COM port. Turn the printer on.</li>
         <li>Open <code>http://&lt;address&gt;.local/</code>: the printer's name and "Ready" mean you are done. Print from iPhone, iPad, Mac (AirPrint), Android (Mopria) or from the web page itself.</li>
