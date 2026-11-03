@@ -91,7 +91,7 @@
       <ol>
         <li><b>Board ESP32-S3</b> (ESP32 thường hoặc ESP32-C3 không dùng được). Nên chọn bản <b>N16R8</b>: 16 MB flash, 8 MB PSRAM. Flash phải từ 16 MB. <a href="https://s.shopee.vn/9KjJ48lfq8" target="_blank" rel="noopener">Bấm vào đây để mua ESP32-S3 N16R8</a> (Shopee).</li>
         <li><b>Cắm board vào máy tính bằng cổng COM</b> (có board ghi UART). <b>Không</b> cắm cổng ghi USB: cổng đó dành cho máy in. Board một cổng thì cắm cổng đó.</li>
-        <li><b>Trình duyệt Chrome hoặc Edge</b> trên Windows, macOS hoặc Linux. Safari, Firefox và điện thoại không nối được với board qua trang web.</li>
+        <li><b>Trình duyệt Chrome, Edge, Cốc Cốc hoặc Brave</b> trên Windows, macOS hoặc Linux (mọi trình duyệt gốc Chromium đều được). Safari, Firefox và điện thoại không có Web Serial nên không nối được với board; khi đó nạp bằng esptool, xem mục Sự cố.</li>
         <li>Cáp USB có dây dữ liệu, không phải cáp chỉ sạc.</li>
       </ol>
       <div class="note warn">Không thấy cổng nào khi bấm Kết nối? Board dùng chip CH340 hoặc CP210x cần cài driver:
@@ -103,7 +103,7 @@
       <ol>
         <li>An <b>ESP32-S3 board</b> (a plain ESP32 or an ESP32-C3 will not do). Prefer the <b>N16R8</b> version: 16 MB flash, 8 MB PSRAM. The flash must be 16 MB or more. <a href="https://s.shopee.vn/9KjJ48lfq8" target="_blank" rel="noopener">Buy an ESP32-S3 N16R8 here</a> (Shopee, Vietnam).</li>
         <li><b>Plug the board into the computer by its COM port</b> (UART on some boards). <b>Not</b> the port marked USB: that one is for the printer. A board with a single port: use that one.</li>
-        <li><b>Chrome or Edge</b> on Windows, macOS or Linux. Safari, Firefox and phones cannot talk to the board from a web page.</li>
+        <li><b>Chrome, Edge, Cốc Cốc or Brave</b> on Windows, macOS or Linux (any Chromium-based browser works). Safari, Firefox and phones have no Web Serial, so they cannot talk to the board; flash with esptool instead, see Trouble.</li>
         <li>A USB cable with data wires, not a charge-only cable.</li>
       </ol>
       <div class="note warn">No serial port listed when you click Connect? Boards with a CH340 or CP210x chip need a driver:
@@ -125,8 +125,8 @@
     <div class="row">
       <esp-web-install-button id="install" manifest="manifest.json">
         <button slot="activate" class="btn primary"><span data-lang="vi">Cài đặt</span><span data-lang="en">Install</span></button>
-        <span slot="unsupported" class="note err" data-lang="vi">Trình duyệt này không cài được: mở trang bằng Chrome hoặc Edge trên máy tính.</span>
-        <span slot="unsupported" class="note err" data-lang="en">This browser cannot install: open the page in Chrome or Edge on a computer.</span>
+        <span slot="unsupported" class="note err" data-lang="vi">Trình duyệt này không cài được: mở trang bằng Chrome, Edge hoặc Cốc Cốc trên máy tính.</span>
+        <span slot="unsupported" class="note err" data-lang="en">This browser cannot install: open the page in Chrome, Edge or another Chromium browser on a computer.</span>
         <span slot="not-allowed" class="note err" data-lang="vi">Trang cần https (hoặc localhost) mới nối được cổng USB.</span>
         <span slot="not-allowed" class="note err" data-lang="en">The page needs https (or localhost) to reach the USB port.</span>
       </esp-web-install-button>
@@ -222,6 +222,7 @@
         <tr><td>Không tìm thấy mạng nhà trong danh sách</td><td>Chỉ hỗ trợ 2.4 GHz. Router phát riêng 5 GHz thì bật thêm 2.4 GHz, hoặc chọn "Hidden network" và gõ tên.</td></tr>
         <tr><td>Trang web báo "Chưa kết nối máy in"</td><td>Kiểm tra cầu hàn USB-OTG, cáp có dây dữ liệu, máy in đã bật. Rút cáp máy in rồi cắm lại.</td></tr>
         <tr><td>Máy in không có trong danh sách hỗ trợ</td><td>Xem danh sách trong README trên GitHub. Firmware tự nhận model khi cắm; máy lạ sẽ dùng driver mặc định và có thể in sai.</td></tr>
+        <tr><td>Chỉ có Safari, Firefox hoặc không dùng được trang này</td><td>Nạp bằng esptool: cài Python, chạy <code>pip install esptool</code>, tải <code>esp32-usb-to-airprint.bin</code> rồi chạy <code>esptool.py --chip esp32s3 write_flash 0x0 esp32-usb-to-airprint.bin</code>. Trên Windows có thể dùng Flash Download Tool của Espressif, chọn file ở địa chỉ 0x0.</td></tr>
       </table>
     </div>
     <div data-lang="en">
@@ -233,6 +234,7 @@
         <tr><td>Home network not in the list</td><td>2.4 GHz only. If the router is 5 GHz only, enable 2.4 GHz, or choose "Hidden network" and type the name.</td></tr>
         <tr><td>The web page says "No printer connected"</td><td>Check the USB-OTG bridge, a data cable, the printer is on. Unplug and replug the printer.</td></tr>
         <tr><td>The printer is not in the supported list</td><td>See the list in the README on GitHub. The firmware picks the driver from the model it sees; an unknown printer gets the default driver and may print wrong.</td></tr>
+        <tr><td>Only Safari or Firefox, or this page does not work for you</td><td>Flash with esptool: install Python, run <code>pip install esptool</code>, download <code>esp32-usb-to-airprint.bin</code> and run <code>esptool.py --chip esp32s3 write_flash 0x0 esp32-usb-to-airprint.bin</code>. On Windows, Espressif's Flash Download Tool works too, with the file at address 0x0.</td></tr>
       </table>
     </div>
   </section>
@@ -263,7 +265,7 @@
 
   const T = {
     vi: {
-      unsupported: 'Trình duyệt này không có Web Serial: dùng Chrome hoặc Edge trên máy tính.',
+      unsupported: 'Trình duyệt này không có Web Serial: dùng Chrome, Edge hoặc Cốc Cốc trên máy tính.',
       notbin: 'File không phải ảnh firmware ESP32 (byte đầu phải là 0xE9).',
       notmerged: 'File này là app riêng lẻ, không phải ảnh đầy đủ. Hãy tải esp32-usb-to-airprint.bin (ảnh nạp ở 0x0).',
       connecting: 'Đang kết nối…',
@@ -277,7 +279,7 @@
       smallflash: 'Flash của board nhỏ hơn 16 MB: firmware này cần 16 MB.',
     },
     en: {
-      unsupported: 'This browser has no Web Serial: use Chrome or Edge on a computer.',
+      unsupported: 'This browser has no Web Serial: use Chrome, Edge or another Chromium browser on a computer.',
       notbin: 'Not an ESP32 firmware image (the first byte must be 0xE9).',
       notmerged: 'This is the app alone, not the full image. Download esp32-usb-to-airprint.bin (the image for 0x0).',
       connecting: 'Connecting…',
