@@ -242,8 +242,8 @@
       <div class="row actions">
         <button class="btn primary" onclick={saveSettings} disabled={!settingsChanged || saving}>{t('Save and restart')}</button>
         <button class="btn" onclick={() => (forgetOpen = true)}><Wifi size={17} /> {t('Change WiFi network')}</button>
-        <span class="muted small grow">{t('Firmware')} {settings.version}</span>
       </div>
+      <p class="muted small fw">{t('Firmware')} {settings.version}</p>
     </section>
   {/if}
 
@@ -373,6 +373,10 @@
   .settings .actions {
     flex-wrap: wrap;
     gap: 8px;
+  }
+  .settings .fw {
+    margin: 10px 0 0;
+    text-align: center;
   }
   .forget {
     display: grid;
