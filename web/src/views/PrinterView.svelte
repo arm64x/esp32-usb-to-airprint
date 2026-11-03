@@ -12,6 +12,8 @@
   import { addFile, formatSize, isSupported } from '../lib/files.svelte';
   import { openPrint, pickFiles, toast } from '../lib/ui.svelte';
   import { cartridgeState, guideFor } from '../lib/errors';
+  import Modal from '../components/Modal.svelte';
+  import Wifi from '@lucide/svelte/icons/wifi';
 
   const p = $derived(device.printer);
   const active = $derived(p?.jobs.find((j) => j.id === p.active && (j.state === 'processing' || j.state === 'pending')));
@@ -125,14 +127,19 @@
       saving = false;
     }
   }
+  let forgetOpen = $state(false);
+  let forgetting = $state(false);
   async function forgetWifi() {
-    if (!confirm(t('Forget the WiFi network? The printer box then opens its own setup network "Printer-Setup-XXXX": join it from a phone to choose a network again.'))) return;
+    forgetting = true;
     try {
       const r = await fetch('/api/wifi/forget', { method: 'POST' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       toast(t('The printer box restarts into its setup network.'), 'ok', [], 12000);
+      forgetOpen = false;
     } catch (e) {
       toast(`${t('Failed')}: ${(e as Error).message}`, 'error');
+    } finally {
+      forgetting = false;
     }
   }
 
@@ -234,10 +241,23 @@
       </div>
       <div class="row actions">
         <button class="btn primary" onclick={saveSettings} disabled={!settingsChanged || saving}>{t('Save and restart')}</button>
-        <button class="btn" onclick={forgetWifi}>{t('Change WiFi network')}</button>
+        <button class="btn" onclick={() => (forgetOpen = true)}><Wifi size={17} /> {t('Change WiFi network')}</button>
         <span class="muted small grow">{t('Firmware')} {settings.version}</span>
       </div>
     </section>
+  {/if}
+
+  {#if forgetOpen}
+    <Modal title={t('Change WiFi network')} onclose={() => (forgetOpen = false)} compact>
+      <div class="forget">
+        <div class="forget-icon"><Wifi size={28} /></div>
+        <p>{t('Forget the WiFi network? The printer box then opens its own setup network "Printer-Setup-XXXX": join it from a phone to choose a network again.')}</p>
+      </div>
+      {#snippet footer()}
+        <button class="btn" onclick={() => (forgetOpen = false)} disabled={forgetting}>{t('Cancel')}</button>
+        <button class="btn danger" onclick={forgetWifi} disabled={forgetting}>{t('Change WiFi network')}</button>
+      {/snippet}
+    </Modal>
   {/if}
 
   <section class="card card-pad">
@@ -341,12 +361,37 @@
     display: grid;
     gap: 6px;
   }
+  .settings .host {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
   .settings .host .input {
-    width: 14em;
+    flex: 1 1 8em;
+    min-width: 0;
+    width: auto;
   }
   .settings .actions {
     flex-wrap: wrap;
     gap: 8px;
+  }
+  .forget {
+    display: grid;
+    gap: 12px;
+    justify-items: center;
+    text-align: center;
+    padding: 20px 20px 8px;
+  }
+  .forget p {
+    margin: 0;
+  }
+  .forget-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    background: var(--accent-soft);
+    color: var(--accent);
   }
   .inks {
     display: grid;
