@@ -68,6 +68,7 @@ typedef struct {
     int in_empty;                       // consecutive idle reads that returned nothing
     usb_transfer_t *stat;               // IVEC GetStatus request for printers that push no status
     volatile bool stat_inflight;
+    bool stat_wanted;                   // ask once: after the printer appeared, and after a job
     TickType_t stat_last;
     volatile bool ctrl_done;
     SemaphoreHandle_t ctrl_sem;
@@ -112,10 +113,13 @@ static void out_cb(usb_transfer_t *xfer)
 
 // Printers like the MG2500 answer every bulk IN read with their status. The
 // iP2700 generation sends nothing until it is asked once with an IVEC
-// GetStatus; from then on it answers every read too. Ask when the back
-// channel stays silent, at most every STAT_REQ_MS.
+// GetStatus; from then on it answers every read, until it goes to sleep
+// (DBS:SL after about 16 minutes idle): asleep, it answers nothing, and any
+// write wakes it up (the carriage moves, 12 s of noise). So the request goes
+// out only when the printer appears and after a job, never periodically: a
+// silent printer is left asleep, and its last status stands.
 #define STAT_EMPTY_READS 3
-#define STAT_REQ_MS 10000
+#define IN_POLL_ASLEEP_MS 15000         // reads do not wake it; just fewer of them
 static const char XML_GET_STATUS[] =
     "<?xml version=\"1.0\" encoding=\"utf-8\" ?><cmd xmlns:ivec=\"http://www.canon.com/ns/cmd/2008/07/common/\">"
     "<ivec:contents><ivec:operation>GetStatus</ivec:operation><ivec:param_set servicetype=\"print\">"
@@ -132,8 +136,8 @@ static void stat_submit(void)
 {
     if (s_p.gone || !s_p.ep_out || !s_p.stat || s_p.stat_inflight || s_p.job_active)
         return;
-    if (s_p.stat_last == 0)
-        ESP_LOGI(TAG, "no status on the back channel, asking with GetStatus");
+    s_p.stat_wanted = false;
+    ESP_LOGI(TAG, "asking the printer for its status (GetStatus)");
     memcpy(s_p.stat->data_buffer, XML_GET_STATUS, sizeof(XML_GET_STATUS) - 1);
     s_p.stat->num_bytes = sizeof(XML_GET_STATUS) - 1;
     s_p.stat_inflight = true;
@@ -557,6 +561,7 @@ static void open_device(uint8_t addr)
     s_p.stat->callback = stat_cb;
     s_p.stat_inflight = false;
     s_p.stat_last = 0;
+    s_p.stat_wanted = true;             // once it is open: the iP2700 answers nothing before
     s_p.in_empty = 0;
 
     if (s_p.alt != 0) {
@@ -635,11 +640,13 @@ static void client_task(void *arg)
             open_device(addr);
         }
         if (s_p.connected && !s_p.gone && !s_p.in_inflight && !s_p.scan_active &&
-            xTaskGetTickCount() - s_p.in_last >= pdMS_TO_TICKS(s_p.job_active ? IN_POLL_JOB_MS : IN_POLL_IDLE_MS))
+            xTaskGetTickCount() - s_p.in_last >=
+                pdMS_TO_TICKS(s_p.job_active ? IN_POLL_JOB_MS
+                              : s_p.in_empty >= STAT_EMPTY_READS && !s_p.stat_wanted ? IN_POLL_ASLEEP_MS
+                                                                                       : IN_POLL_IDLE_MS))
             in_submit();
         if (s_p.connected && !s_p.gone && !s_p.job_active && !s_p.scan_active && !s_p.in_inflight &&
-            s_p.in_empty >= STAT_EMPTY_READS &&
-            (s_p.stat_last == 0 || xTaskGetTickCount() - s_p.stat_last >= pdMS_TO_TICKS(STAT_REQ_MS)))
+            s_p.stat_wanted && s_p.in_empty >= STAT_EMPTY_READS)
             stat_submit();
         if (s_p.gone && !teardown) {
             ESP_LOGW(TAG, "printer disconnected");
@@ -1025,5 +1032,6 @@ void usb_scanner_end(void)
     if (!s_p.scan_stuck)
         free_scan_transfers();
     s_p.in_last = xTaskGetTickCount();     // resume the printer's status polling later
+    s_p.stat_wanted = true;                // and ask once if it stays silent
     s_p.job_active = false;
 }
