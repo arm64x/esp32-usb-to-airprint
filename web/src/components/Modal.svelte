@@ -7,9 +7,10 @@
     title,
     onclose,
     wide = false,
+    compact = false, // short content: a bottom sheet on phones instead of a full-screen page
     children,
     footer,
-  }: { title: string; onclose: () => void; wide?: boolean; children: Snippet; footer?: Snippet } = $props();
+  }: { title: string; onclose: () => void; wide?: boolean; compact?: boolean; children: Snippet; footer?: Snippet } = $props();
 
   function key(e: KeyboardEvent) {
     if (e.key === 'Escape') onclose();
@@ -19,7 +20,7 @@
 <svelte:window onkeydown={key} />
 
 <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && onclose()}>
-  <div lang={i18n.locale} class="modal" class:wide role="dialog" aria-modal="true" aria-label={title}>
+  <div lang={i18n.locale} class="modal" class:wide class:compact role="dialog" aria-modal="true" aria-label={title}>
     <header>
       <h2 class="grow ellipsis">{title}</h2>
       <button class="icon-btn" aria-label={t('Close')} onclick={onclose}><X size={20} /></button>
@@ -104,8 +105,15 @@
       height: 100%;
       border-radius: 0;
     }
+    .modal.compact {
+      height: auto;
+      border-radius: 18px 18px 0 0;
+    }
     header {
       padding-top: max(12px, env(safe-area-inset-top));
+    }
+    .modal.compact header {
+      padding-top: 12px;
     }
     footer {
       padding-bottom: max(12px, env(safe-area-inset-bottom));
